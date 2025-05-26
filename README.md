@@ -5,6 +5,7 @@ A modern Android weather widget that displays a 16-day weather forecast directly
 ## Features
 
 - **16-Day Weather Forecast**: View daily maximum and minimum temperatures for the next 16 days
+- **Weather Icons**: Visual weather condition indicators with 12 different icon types (sunny, cloudy, rain, snow, thunderstorm, etc.)
 - **Automatic Location Detection**: Uses GPS and network location services to automatically detect your current location
 - **Custom Location Search**: Search and select any city worldwide for weather forecasts
 - **Smart Location Handling**: Intelligent city name display with support for international locations
@@ -168,8 +169,9 @@ app/src/main/
 
 - Widget updates are handled in `HelloWidgetProvider.onUpdate()`
 - Location detection uses a fallback hierarchy: GPS → Network → IP-based
-- Weather data is fetched from Open-Meteo API with 16-day forecasts
-- Widget layout supports up to 16 days of forecast data
+- Weather data is fetched from Open-Meteo API with 16-day forecasts including weather codes
+- Widget layout supports up to 16 days of forecast data with weather icons
+- Weather icons are mapped from WMO weather codes to 12 distinct visual categories
 
 ## ~~Contributing~~
 
@@ -201,6 +203,11 @@ This project is open source.
 - [Material Design](https://material.io/) for design guidelines
 
 ## Changelog
+
+### Version 2.1
+- Added weather icons to widget display
+- 12 different weather condition icons based on WMO weather codes
+- Enhanced visual representation of weather conditions
 
 ### Version 2.0
 - Improved location search functionality

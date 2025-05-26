@@ -45,7 +45,7 @@ class HelloWidgetProvider : AppWidgetProvider() {
           // 3) Fetch 16-day forecast
           val urlString = "https://api.open-meteo.com/v1/forecast" +
               "?latitude=$lat&longitude=$lon" +
-              "&daily=temperature_2m_max,temperature_2m_min" +
+              "&daily=temperature_2m_max,temperature_2m_min,weather_code" +
               "&forecast_days=16" +
               "&timezone=auto"
           val raw = URL(urlString).openConnection().run {
@@ -55,6 +55,7 @@ class HelloWidgetProvider : AppWidgetProvider() {
           val dates    = daily.getJSONArray("time")
           val maxTemps = daily.getJSONArray("temperature_2m_max")
           val minTemps = daily.getJSONArray("temperature_2m_min")
+          val weatherCodes = daily.getJSONArray("weather_code")
 
           // 4) Populate 16 days
           val dfDate = DateTimeFormatter.ofPattern("d.M.")
@@ -65,12 +66,14 @@ class HelloWidgetProvider : AppWidgetProvider() {
             val dayStr  = ld.format(dfDay)
             val maxStr  = maxTemps.getDouble(i).toInt().toString() + "°"
             val minStr  = minTemps.getDouble(i).toInt().toString() + "°"
+            val weatherCode = weatherCodes.getInt(i)
 
             fun id(name: String) = context.resources.getIdentifier("$name$i", "id", context.packageName)
             views.setTextViewText(id("date"), dateStr)
             views.setTextViewText(id("day"),  dayStr)
             views.setTextViewText(id("temp"), maxStr)
             views.setTextViewText(id("min"),  minStr)
+            views.setImageViewResource(id("icon"), getWeatherIcon(weatherCode))
           }
 
           appWidgetManager.updateAppWidget(widgetId, views)
@@ -141,6 +144,24 @@ class HelloWidgetProvider : AppWidgetProvider() {
     } catch (e: Exception) {
       // Default fallback location (London)
       LocationData(51.5074, -0.1278, "London")
+    }
+  }
+
+  private fun getWeatherIcon(weatherCode: Int): Int {
+    return when (weatherCode) {
+      0 -> R.drawable.weather_sunny                    // Clear
+      1, 2, 3 -> R.drawable.weather_partly_cloudy      // Partly Cloudy
+      45, 48 -> R.drawable.weather_fog                 // Fog
+      51, 53, 55 -> R.drawable.weather_drizzle         // Light Drizzle
+      56, 57 -> R.drawable.weather_snowy_rainy         // Freezing Drizzle
+      61, 63, 65 -> R.drawable.weather_rainy           // Rain
+      66, 67 -> R.drawable.weather_snowy_rainy         // Freezing Rain
+      71, 73, 75 -> R.drawable.weather_snowy           // Snow
+      77 -> R.drawable.weather_hail                    // Snow Grains
+      80, 81, 82 -> R.drawable.weather_pouring         // Rain Showers
+      85, 86 -> R.drawable.weather_snowy_heavy         // Snow Showers
+      95, 96, 99 -> R.drawable.weather_lightning_rainy // Thunderstorm
+      else -> R.drawable.weather_partly_cloudy         // Default fallback
     }
   }
 }
