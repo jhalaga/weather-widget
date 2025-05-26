@@ -1,0 +1,6 @@
+<resources>
+  <!-- Base application theme. -->
+  <style name="Theme.WeatherWidget" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <!-- You can customize colors here if you like -->
+  </style>
+</resources>
