@@ -1,3 +1,7 @@
 {
-  "editor_opened_files": "[]"
+  "editor_opened_files": "[]",
+  "java.home": "C:\\Program Files\\Android\\Android Studio\\jbr",
+  "android.sdk.path": "C:\\Users\\jozef\\AppData\\Local\\Android\\Sdk",
+  "android.buildTools.path": "C:\\Users\\jozef\\AppData\\Local\\Android\\Sdk\\build-tools",
+  "gradle.newtaskview.enabled": true
 }
