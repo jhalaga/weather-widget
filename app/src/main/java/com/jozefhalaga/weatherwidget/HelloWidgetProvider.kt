@@ -24,31 +24,19 @@ class HelloWidgetProvider : AppWidgetProvider() {
     appWidgetIds.forEach { widgetId ->
       thread {
         try {
-          // 1) Resolve precise device location or fallback to IP
-          var lat: Double? = null
-          var lon: Double? = null
-          var city: String = ""
-          if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-            || ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+          // 1) Get location using the improved location manager
+          val locationData = kotlin.runCatching { 
+            // Since we can't use suspend functions in this context, we need to use a blocking approach
+            if (WeatherLocationManager.isUsingCustomLocation(context)) {
+              WeatherLocationManager.getCustomLocation(context) ?: getFallbackIPLocation()
+            } else {
+              getPreciseLocationBlocking(context) ?: getFallbackIPLocation()
+            }
+          }.getOrElse { getFallbackIPLocation() }
 
-            val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            val gpsLoc = kotlin.runCatching { lm.getLastKnownLocation(LocationManager.GPS_PROVIDER) }.getOrNull()
-            val netLoc = kotlin.runCatching { lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER) }.getOrNull()
-            val loc: Location? = gpsLoc ?: netLoc
-            if (loc != null) {
-              lat = loc.latitude
-              lon = loc.longitude
-            }
-          }
-          if (lat == null || lon == null) {
-            val geoJson = URL("https://geolocation-db.com/json/").openConnection().run {
-              inputStream.bufferedReader().readText()
-            }
-            val geoJo = JSONObject(geoJson)
-            city = geoJo.optString("city", "")
-            lat = geoJo.getDouble("latitude")
-            lon = geoJo.getDouble("longitude")
-          }
+          val lat = locationData.latitude
+          val lon = locationData.longitude
+          val city = locationData.city
 
           // 2) Update location header
           val views = RemoteViews(context.packageName, R.layout.hello_widget)
@@ -92,6 +80,67 @@ class HelloWidgetProvider : AppWidgetProvider() {
           appWidgetManager.updateAppWidget(widgetId, views)
         }
       }
+    }
+  }
+
+  private fun getPreciseLocationBlocking(context: Context): LocationData? {
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+      return null
+    }
+
+    val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    
+    // First try to get a fresh location from GPS
+    if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+      val gpsLoc = kotlin.runCatching { lm.getLastKnownLocation(LocationManager.GPS_PROVIDER) }.getOrNull()
+      if (gpsLoc != null && System.currentTimeMillis() - gpsLoc.time < 300000) { // 5 minutes fresh
+        val city = getCityFromCoordinatesBlocking(gpsLoc.latitude, gpsLoc.longitude)
+        return LocationData(gpsLoc.latitude, gpsLoc.longitude, city)
+      }
+    }
+    
+    // Fallback to network location
+    if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+      val netLoc = kotlin.runCatching { lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER) }.getOrNull()
+      if (netLoc != null) {
+        val city = getCityFromCoordinatesBlocking(netLoc.latitude, netLoc.longitude)
+        return LocationData(netLoc.latitude, netLoc.longitude, city)
+      }
+    }
+    
+    return null
+  }
+
+  private fun getCityFromCoordinatesBlocking(lat: Double, lon: Double): String {
+    return try {
+      val url = "https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=$lat&longitude=$lon&localityLanguage=en"
+      val response = URL(url).openConnection().run {
+        connectTimeout = 5000
+        readTimeout = 5000
+        inputStream.bufferedReader().readText()
+      }
+      val json = JSONObject(response)
+      json.optString("city", "") ?: json.optString("locality", "Unknown Location")
+    } catch (e: Exception) {
+      "Current Location"
+    }
+  }
+
+  private fun getFallbackIPLocation(): LocationData {
+    return try {
+      val geoJson = URL("https://geolocation-db.com/json/").openConnection().run {
+        connectTimeout = 5000
+        readTimeout = 5000
+        inputStream.bufferedReader().readText()
+      }
+      val geoJo = JSONObject(geoJson)
+      val city = geoJo.optString("city", "Unknown Location")
+      val lat = geoJo.getDouble("latitude")
+      val lon = geoJo.getDouble("longitude")
+      LocationData(lat, lon, city)
+    } catch (e: Exception) {
+      // Default fallback location (London)
+      LocationData(51.5074, -0.1278, "London")
     }
   }
 }
