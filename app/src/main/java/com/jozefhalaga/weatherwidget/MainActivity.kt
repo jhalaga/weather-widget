@@ -1,9 +1,13 @@
 package com.jozefhalaga.weatherwidget
 
 import android.Manifest
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
+import android.view.inputmethod.EditorInfo
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -11,6 +15,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.chip.Chip
+import com.google.android.material.chip.ChipGroup
+import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -21,13 +28,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var radioAutoLocation: RadioButton
     private lateinit var radioCustomLocation: RadioButton
     private lateinit var customLocationCard: MaterialCardView
-    private lateinit var citySpinner: Spinner
+    private lateinit var citySearchEditText: TextInputEditText
+    private lateinit var searchCityButton: MaterialButton
+    private lateinit var searchResultsLabel: TextView
+    private lateinit var searchResultsChipGroup: ChipGroup
     private lateinit var selectedLocationText: TextView
     private lateinit var refreshLocationButton: MaterialButton
     private lateinit var saveSettingsButton: MaterialButton
+    private lateinit var updateWidgetsButton: MaterialButton
     private lateinit var statusText: TextView
 
     private var currentLocationData: LocationData? = null
+    private var selectedCustomLocation: LocationData? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,7 +48,6 @@ class MainActivity : AppCompatActivity() {
             setContentView(R.layout.activity_main)
             
             initViews()
-            setupSpinner()
             setupEventListeners()
             loadCurrentSettings()
             
@@ -59,41 +70,35 @@ class MainActivity : AppCompatActivity() {
         radioAutoLocation = findViewById(R.id.radioAutoLocation)
         radioCustomLocation = findViewById(R.id.radioCustomLocation)
         customLocationCard = findViewById(R.id.customLocationCard)
-        citySpinner = findViewById(R.id.citySpinner)
+        citySearchEditText = findViewById(R.id.citySearchEditText)
+        searchCityButton = findViewById(R.id.searchCityButton)
+        searchResultsLabel = findViewById(R.id.searchResultsLabel)
+        searchResultsChipGroup = findViewById(R.id.searchResultsChipGroup)
         selectedLocationText = findViewById(R.id.selectedLocationText)
         refreshLocationButton = findViewById(R.id.refreshLocationButton)
         saveSettingsButton = findViewById(R.id.saveSettingsButton)
+        updateWidgetsButton = findViewById(R.id.updateWidgetsButton)
         statusText = findViewById(R.id.statusText)
         
         currentLocationText.text = "Ready to detect location"
     }
 
-    private fun setupSpinner() {
+    private fun clearSearchResults() {
         try {
-            val cities = WeatherLocationManager.popularCities
-            val adapter = ArrayAdapter(
-                this,
-                android.R.layout.simple_spinner_item,
-                cities.map { it.city }
-            )
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            citySpinner.adapter = adapter
-
-            citySpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    try {
-                        val selectedCity = cities[position]
-                        selectedLocationText.text = "Lat: ${selectedCity.latitude}, Lon: ${selectedCity.longitude}"
-                        selectedLocationText.visibility = View.VISIBLE
-                    } catch (e: Exception) {
-                        showStatus("Error selecting city: ${e.message}")
-                    }
-                }
-                override fun onNothingSelected(parent: AdapterView<*>?) {}
-            }
+            searchResultsChipGroup.removeAllViews()
+            searchResultsLabel.visibility = View.GONE
+            selectedLocationText.visibility = View.GONE
         } catch (e: Exception) {
-            showStatus("Error setting up city selector: ${e.message}")
+            showStatus("Error clearing search results: ${e.message}")
         }
+    }
+
+    private fun selectLocation(location: LocationData) {
+        selectedCustomLocation = location
+        selectedLocationText.text = "${location.city}\nLat: ${String.format("%.4f", location.latitude)}, Lon: ${String.format("%.4f", location.longitude)}"
+        selectedLocationText.visibility = View.VISIBLE
+        citySearchEditText.setText(location.city)
+        showStatus("Selected: ${location.city}")
     }
 
     private fun setupEventListeners() {
@@ -101,6 +106,7 @@ class MainActivity : AppCompatActivity() {
             when (checkedId) {
                 R.id.radioAutoLocation -> {
                     customLocationCard.visibility = View.GONE
+                    clearSearchResults()
                     showStatus("GPS location selected")
                 }
                 R.id.radioCustomLocation -> {
@@ -121,6 +127,89 @@ class MainActivity : AppCompatActivity() {
         saveSettingsButton.setOnClickListener {
             saveCurrentSettings()
         }
+
+        updateWidgetsButton.setOnClickListener {
+            updateAllWidgets()
+        }
+
+        searchCityButton.setOnClickListener {
+            searchForCity()
+        }
+
+        citySearchEditText.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                searchForCity()
+                true
+            } else {
+                false
+            }
+        }
+
+        // Clear search results when text is cleared
+        citySearchEditText.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (s.isNullOrEmpty()) {
+                    clearSearchResults()
+                }
+            }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
+    }
+
+    private fun searchForCity() {
+        val query = citySearchEditText.text.toString().trim()
+        if (query.length < 2) {
+            showStatus("Please enter at least 2 characters to search")
+            return
+        }
+
+        showStatus("Searching for '$query'...")
+        lifecycleScope.launch {
+            try {
+                val results = WeatherLocationManager.searchCities(query)
+                if (results.isNotEmpty()) {
+                    showSearchResults(results)
+                } else {
+                    showStatus("No cities found for '$query'. Try a different search term.")
+                }
+            } catch (e: Exception) {
+                showStatus("Search error: ${e.message}")
+            }
+        }
+    }
+
+    private fun showSearchResults(results: List<SearchResult>) {
+        try {
+            // Clear previous results and show search results
+            searchResultsChipGroup.removeAllViews()
+            searchResultsLabel.visibility = View.VISIBLE
+            
+            results.forEach { result ->
+                val chip = Chip(this)
+                chip.text = result.displayName
+                chip.isCheckable = true
+                chip.setOnClickListener {
+                    val location = LocationData(
+                        result.latitude, 
+                        result.longitude, 
+                        result.displayName, 
+                        true
+                    )
+                    selectLocation(location)
+                    // Uncheck other chips
+                    for (i in 0 until searchResultsChipGroup.childCount) {
+                        val otherChip = searchResultsChipGroup.getChildAt(i) as Chip
+                        otherChip.isChecked = otherChip == chip
+                    }
+                }
+                searchResultsChipGroup.addView(chip)
+            }
+            
+            showStatus("Found ${results.size} locations. Tap one to select it.")
+        } catch (e: Exception) {
+            showStatus("Error displaying search results: ${e.message}")
+        }
     }
 
     private fun loadCurrentSettings() {
@@ -133,15 +222,8 @@ class MainActivity : AppCompatActivity() {
                 
                 val customLocation = WeatherLocationManager.getCustomLocation(this)
                 if (customLocation != null) {
-                    // Find the matching city in spinner
-                    val cities = WeatherLocationManager.popularCities
-                    val index = cities.indexOfFirst { 
-                        Math.abs(it.latitude - customLocation.latitude) < 0.1 && 
-                        Math.abs(it.longitude - customLocation.longitude) < 0.1 
-                    }
-                    if (index >= 0) {
-                        citySpinner.setSelection(index)
-                    }
+                    selectedCustomLocation = customLocation
+                    selectLocation(customLocation)
                     currentLocationData = customLocation
                     updateLocationDisplay(customLocation)
                 }
@@ -230,18 +312,45 @@ class MainActivity : AppCompatActivity() {
                 R.id.radioAutoLocation -> {
                     WeatherLocationManager.saveLocationPreference(this, false)
                     showStatus("Settings saved! Using GPS location.", 2000)
+                    updateAllWidgets()
                 }
                 R.id.radioCustomLocation -> {
-                    val selectedPosition = citySpinner.selectedItemPosition
-                    val selectedCity = WeatherLocationManager.popularCities[selectedPosition]
-                    WeatherLocationManager.saveLocationPreference(this, true, selectedCity)
-                    currentLocationData = selectedCity
-                    updateLocationDisplay(selectedCity)
-                    showStatus("Settings saved! Using ${selectedCity.city}.", 2000)
+                    if (selectedCustomLocation != null) {
+                        WeatherLocationManager.saveLocationPreference(this, true, selectedCustomLocation)
+                        currentLocationData = selectedCustomLocation
+                        updateLocationDisplay(selectedCustomLocation!!)
+                        showStatus("Settings saved! Using ${selectedCustomLocation!!.city}.", 2000)
+                        updateAllWidgets()
+                    } else {
+                        showStatus("Please select a location first")
+                    }
                 }
             }
         } catch (e: Exception) {
             showStatus("Error saving settings: ${e.message}")
+        }
+    }
+
+    private fun updateAllWidgets() {
+        try {
+            val appWidgetManager = AppWidgetManager.getInstance(this)
+            val widgetComponent = ComponentName(this, HelloWidgetProvider::class.java)
+            val widgetIds = appWidgetManager.getAppWidgetIds(widgetComponent)
+            
+            if (widgetIds.isNotEmpty()) {
+                // Trigger widget update
+                val updateIntent = Intent(this, HelloWidgetProvider::class.java).apply {
+                    action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, widgetIds)
+                }
+                sendBroadcast(updateIntent)
+                
+                showStatus("Weather widgets updated with new location!", 2000)
+            } else {
+                showStatus("No weather widgets found to update.", 2000)
+            }
+        } catch (e: Exception) {
+            showStatus("Error updating widgets: ${e.message}")
         }
     }
 

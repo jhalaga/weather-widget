@@ -124,16 +124,34 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Choose Location"
+                    android:text="Search for any city worldwide"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:layout_marginBottom="16dp" />
 
-                <Spinner
-                    android:id="@+id/citySpinner"
+                <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp" />
+                    android:layout_marginBottom="8dp"
+                    android:hint="Enter city name (e.g., Paris, Tokyo, New York)"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/citySearchEditText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textCapWords"
+                        android:imeOptions="actionSearch" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/searchCityButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Search Location"
+                    android:layout_marginBottom="16dp"
+                    style="@style/Widget.Material3.Button.OutlinedButton" />
 
                 <TextView
                     android:id="@+id/selectedLocationText"
@@ -143,6 +161,24 @@
                     android:textSize="12sp"
                     android:textColor="?attr/colorOnSurfaceVariant"
                     android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/searchResultsLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Search results:"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp"
+                    android:visibility="gone" />
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/searchResultsChipGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:chipSpacingHorizontal="8dp"
+                    app:chipSpacingVertical="4dp" />
 
             </LinearLayout>
 
@@ -161,7 +197,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Refresh Location"
-                android:layout_marginEnd="8dp"
+                android:layout_marginEnd="4dp"
                 style="@style/Widget.Material3.Button.OutlinedButton" />
 
             <com.google.android.material.button.MaterialButton
@@ -170,9 +206,19 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Save Settings"
-                android:layout_marginStart="8dp" />
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp" />
 
         </LinearLayout>
+
+        <!-- Widget Update Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/updateWidgetsButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Update Weather Widgets"
+            android:layout_marginTop="8dp"
+            style="@style/Widget.Material3.Button.OutlinedButton" />
 
         <!-- Status -->
         <TextView

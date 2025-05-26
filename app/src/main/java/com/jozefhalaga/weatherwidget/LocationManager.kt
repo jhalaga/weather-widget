@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.net.URL
+import java.net.URLEncoder
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 
@@ -20,6 +21,13 @@ data class LocationData(
     val longitude: Double,
     val city: String,
     val isCustom: Boolean = false
+)
+
+data class SearchResult(
+    val displayName: String,
+    val latitude: Double,
+    val longitude: Double,
+    val country: String
 )
 
 object WeatherLocationManager {
@@ -60,6 +68,90 @@ object WeatherLocationManager {
         
         if (lat == 0.0 && lon == 0.0) return null
         return LocationData(lat, lon, city, true)
+    }
+
+    suspend fun searchCities(query: String): List<SearchResult> = withContext(Dispatchers.IO) {
+        if (query.length < 2) return@withContext emptyList()
+        
+        try {
+            val encodedQuery = URLEncoder.encode(query, "UTF-8")
+            val url = "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&limit=10&addressdetails=1"
+            
+            val response = URL(url).openConnection().run {
+                setRequestProperty("User-Agent", "WeatherWidget/1.0")
+                connectTimeout = 10000
+                readTimeout = 10000
+                inputStream.bufferedReader().readText()
+            }
+            
+            val jsonArray = org.json.JSONArray(response)
+            val results = mutableListOf<SearchResult>()
+            
+            for (i in 0 until jsonArray.length()) {
+                val item = jsonArray.getJSONObject(i)
+                val address = item.optJSONObject("address")
+                
+                // Filter for cities, towns, villages
+                val placeType = item.optString("type", "")
+                val osmType = item.optString("osm_type", "")
+                
+                if (placeType in listOf("city", "town", "village", "municipality") || 
+                    osmType == "relation" || osmType == "way") {
+                    
+                    val displayName = item.getString("display_name")
+                    val lat = item.getDouble("lat")
+                    val lon = item.getDouble("lon")
+                    
+                    // Extract city and country for cleaner display
+                    // Try multiple fields to find the actual place name
+                    val originalName = item.optString("name", "")
+                    val city = address?.optString("city") 
+                        ?: address?.optString("town") 
+                        ?: address?.optString("village")
+                        ?: address?.optString("municipality")
+                        ?: address?.optString("hamlet")
+                        ?: address?.optString("suburb")
+                        ?: originalName
+                    
+                    val country = address?.optString("country", "") ?: ""
+                    
+                    val cleanDisplayName = when {
+                        // Prioritize the original name if it's meaningful and not just a country
+                        originalName.isNotEmpty() && originalName != country && originalName.length > 1 -> {
+                            if (country.isNotEmpty()) "$originalName, $country" else originalName
+                        }
+                        // If we have a valid city name from address fields that's different from original
+                        city.isNotEmpty() && city != originalName -> {
+                            if (country.isNotEmpty()) "$city, $country" else city
+                        }
+                        // If no good name found, try to extract from the display name
+                        else -> {
+                            val parts = displayName.split(",").map { it.trim() }
+                            // Get the first non-empty part that's not just a country
+                            val placeName = parts.firstOrNull { part -> 
+                                part.isNotEmpty() && part != country && part.length > 1
+                            } ?: parts.firstOrNull { it.isNotEmpty() }
+                            
+                            if (placeName != null && placeName.isNotEmpty()) {
+                                if (country.isNotEmpty() && placeName != country) {
+                                    "$placeName, $country"
+                                } else {
+                                    placeName
+                                }
+                            } else {
+                                "Unknown Location"
+                            }
+                        }
+                    }
+                    
+                    results.add(SearchResult(cleanDisplayName, lat, lon, country ?: ""))
+                }
+            }
+            
+            results.distinctBy { "${it.latitude},${it.longitude}" }.take(8)
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 
     suspend fun getCurrentLocation(context: Context): LocationData = withContext(Dispatchers.IO) {
@@ -174,26 +266,5 @@ object WeatherLocationManager {
         }
     }
 
-    // Predefined cities for location picker
-    val popularCities = listOf(
-        LocationData(51.5074, -0.1278, "London, UK"),
-        LocationData(40.7128, -74.0060, "New York, USA"),
-        LocationData(48.8566, 2.3522, "Paris, France"),
-        LocationData(35.6762, 139.6503, "Tokyo, Japan"),
-        LocationData(37.7749, -122.4194, "San Francisco, USA"),
-        LocationData(52.5200, 13.4050, "Berlin, Germany"),
-        LocationData(41.9028, 12.4964, "Rome, Italy"),
-        LocationData(55.7558, 37.6176, "Moscow, Russia"),
-        LocationData(-33.8688, 151.2093, "Sydney, Australia"),
-        LocationData(48.2082, 16.3738, "Vienna, Austria"),
-        LocationData(50.0755, 14.4378, "Prague, Czech Republic"),
-        LocationData(47.4979, 19.0402, "Budapest, Hungary"),
-        LocationData(52.2297, 21.0122, "Warsaw, Poland"),
-        LocationData(59.3293, 18.0686, "Stockholm, Sweden"),
-        LocationData(45.4642, 9.1900, "Milan, Italy"),
-        LocationData(41.3851, 2.1734, "Barcelona, Spain"),
-        LocationData(52.3676, 4.9041, "Amsterdam, Netherlands"),
-        LocationData(50.8503, 4.3517, "Brussels, Belgium"),
-        LocationData(47.3769, 8.5417, "Zurich, Switzerland")
-    )
+
 } 
