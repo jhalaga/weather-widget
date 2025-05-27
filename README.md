@@ -1,246 +1,228 @@
-# Weather Widget for Android
+# Weather Widget for Android 🌦️
 
-A modern Android weather widget that displays a 16-day weather forecast directly on your home screen. The widget automatically detects your location or allows you to set a custom location, providing temperature forecasts using the Open-Meteo API.
+A modern Android weather widget that displays real-time weather forecasts directly on your home screen. Features both hourly and daily forecast modes with automatic location detection or custom location selection.
 
-## Features
+[![Android](https://img.shields.io/badge/Platform-Android-green.svg)](https://android.com)
+[![API](https://img.shields.io/badge/API-24%2B-brightgreen.svg)](https://android-arsenal.com/api?level=24)
+[![Kotlin](https://img.shields.io/badge/Language-Kotlin-blue.svg)](https://kotlinlang.org)
+[![Open-Meteo](https://img.shields.io/badge/Weather%20API-Open--Meteo-orange.svg)](https://open-meteo.com/)
 
-- **16-Day Weather Forecast**: View daily maximum and minimum temperatures for the next 16 days
-- **Weather Icons**: Visual weather condition indicators with 12 different icon types (sunny, cloudy, rain, snow, thunderstorm, etc.)
-- **Automatic Location Detection**: Uses GPS and network location services to automatically detect your current location
-- **Custom Location Search**: Search and select any city worldwide for weather forecasts
-- **Smart Location Handling**: Intelligent city name display with support for international locations
-- **Home Screen Widget**: Compact widget design that fits perfectly on your Android home screen
-- **Offline Fallback**: Uses IP-based location detection when GPS is unavailable
-- **Material Design**: Modern UI following Material Design guidelines
+## ✨ Features
 
-## Screenshots
+- 🌡️ **Dual Forecast Modes**: Switch between hourly (48h) and daily (16d) weather forecasts
+- 🗺️ **Smart Location**: GPS auto-detection or worldwide city search
+- 🌍 **Real Weather Data**: Live data from Open-Meteo API (no API key required)
+- ⏰ **Hourly Precision**: Shows weather at exact hour intervals (14:00, 15:00, etc.)
+- 🎨 **12 Weather Icons**: Visual indicators for all weather conditions
+- 📱 **Home Screen Widget**: Compact design that fits perfectly on your launcher
+- 🔄 **Auto-Refresh**: Smart caching with automatic data updates
+- 🌐 **Offline Fallback**: IP-based location when GPS unavailable
 
-*Screenshots coming soon - add your widget screenshots here*
+## 📱 Screenshots
 
-## Installation
+### Widget Forecast Modes
+| Hourly Forecast (48 hours) | Daily Forecast (16 days) |
+|:---:|:---:|
+| ![Hourly Mode](screenshots/widget-hourly.jpg) | ![Daily Mode](screenshots/widget-daily.jpg) |
+| Shows weather every hour with precise timing | Shows daily max/min temps with weather icons |
 
-### Prerequisites
+### App Configuration
+| Main Interface | Weather Icons Legend |
+|:---:|:---:|
+| ![Main App](screenshots/app-main-interface.jpg) | ![Weather Icons](screenshots/weather-icons-legend.jpg) |
+| GPS/Custom location setup with neumorphic design | Complete guide to all 12 weather condition icons |
 
-- Android device running Android 7.0 (API level 24) or higher
-- Android Studio (for development)
-- Java 21 or higher
+### 📦 Download & Install
 
-### Building from Source
+1. **Download APK** (when available)
+   - Go to [Releases](../../releases) page
+   - Download the latest `weather-widget.apk`
+   - Install on your Android device
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/weather-widget.git
-   cd weather-widget
-   ```
+2. **Add Widget**
+   - Long press on home screen → "Widgets"
+   - Find "Weather Widget" and drag to home screen
+   - Configure location in the main app
 
-2. **Open in Android Studio**
-   - Open Android Studio
-   - Select "Open an existing project"
-   - Navigate to the cloned repository folder
+### 🔧 Build from Source
 
-3. **Build the project**
-   ```bash
-   # For Windows
-   .\gradlew.bat assembleDebug
-   
-   # For Linux/macOS
-   ./gradlew assembleDebug
-   ```
+**Prerequisites:**
+- Android Studio Arctic Fox or newer
+- Android SDK 24+ 
+- Java 11+ (recommended: Java 17)
 
-4. **Install on device**
-   ```bash
-   # Connect your Android device and enable USB debugging
-   .\gradlew.bat installDebug
-   ```
-
-The APK will be created at: `app\build\outputs\apk\debug\app-debug.apk`
-
-### Release Build
-
-To build a release version:
+**Build Steps:**
 ```bash
-.\gradlew.bat assembleRelease
+# Clone repository
+git clone https://github.com/yourusername/weather-widget.git
+cd weather-widget
+
+# Build debug APK
+./gradlew assembleDebug
+
+# Install to connected device
+./gradlew installDebug
 ```
 
-## Usage
+**Output:** `app/build/outputs/apk/debug/app-debug.apk`
 
-### Setting up the Widget
+## 📋 Usage
 
-1. **Install the app** on your Android device
-2. **Grant permissions**: The app will request location permissions for automatic location detection
-3. **Add widget to home screen**:
-   - Long press on your home screen
-   - Select "Widgets"
-   - Find "Weather Widget" and drag it to your home screen
+### Widget Modes
+- **Toggle Button**: Tap "Hourly/Daily" on widget to switch between forecast modes
+- **Hourly Mode**: Shows 48 hours of weather (6 rows × 8 hours)
+- **Daily Mode**: Shows 16 days of weather (2 rows × 8 days)
 
-### Configuring Location
+### Location Configuration
 
-The app offers two location modes:
+**Option 1: GPS Auto-Detection** 🛰️
+1. Open the app
+2. Grant location permissions
+3. Select "Use GPS Location"
+4. Widget automatically updates with your current location
 
-#### Automatic Location (GPS)
-- Select "Use GPS Location" in the app
-- The widget will automatically use your current location
-- Requires location permissions
+**Option 2: Custom Location** 🗺️
+1. Open the app  
+2. Select "Use Custom Location"
+3. Search for any city (type 2+ characters)
+4. Tap your desired location from results
+5. Widget uses this fixed location
 
-#### Custom Location
-- Select "Use Custom Location" in the app
-- Search for any city using the search function
-- Select your desired location from the search results
-- The widget will use this fixed location
+### Widget Features
+- **Real-time Updates**: Data refreshes every 2 hours
+- **Time Display**: Shows ":00" format for hourly forecasts (aligns with server data)
+- **Weather Icons**: 12 different icons based on WMO weather codes
+- **Temperature Range**: Daily mode shows max/min temps
 
-### App Interface
+## ⚙️ Technical Details
 
-- **Location Settings**: Choose between GPS and custom location
-- **City Search**: Type at least 2 characters to search for cities
-- **Search Results**: Tap on search results to select a location
-- **Save Settings**: Apply your location preferences
-- **Update Widgets**: Manually refresh all widgets on your home screen
-- **Weather Icons Legend**: Expandable help section showing all weather icon meanings
-
-## Technical Details
-
-### Architecture
-
-- **Language**: Kotlin
-- **Minimum SDK**: Android 7.0 (API 24)
+### Tech Stack
+- **Language**: Kotlin 100%
+- **Min SDK**: Android 7.0 (API 24)
 - **Target SDK**: Android 14 (API 35)
-- **Architecture**: Single Activity with AppWidget Provider
+- **Architecture**: MVVM with AppWidget Provider
 
-### Key Components
+### 🔧 Key Components
+| Component | Purpose |
+|-----------|---------|
+| `WeatherService.kt` | Real weather data fetching from Open-Meteo API |
+| `ForecastWidgetService.kt` | Widget data processing and display logic |
+| `HelloWidgetProvider.kt` | Main widget provider and update manager |
+| `LocationManager.kt` | GPS/network location and city search |
+| `MainActivity.kt` | Configuration UI with neumorphic design |
 
-- `MainActivity.kt`: Main configuration interface
-- `HelloWidgetProvider.kt`: Widget provider handling weather data and display
-- `LocationManager.kt`: Location detection and city search functionality
+### 🌐 APIs & Services
+- **[Open-Meteo](https://open-meteo.com/)**: Weather forecast data (no API key needed)
+- **[BigDataCloud](https://www.bigdatacloud.com/)**: Reverse geocoding
+- **[Nominatim OSM](https://nominatim.openstreetmap.org/)**: City search
+- **[Geolocation-DB](https://geolocation-db.com/)**: IP-based location fallback
 
-### APIs Used
-
-- **Open-Meteo API**: Free weather forecast API (no API key required)
-- **BigDataCloud API**: Reverse geocoding for location names
-- **Geolocation-DB**: IP-based location fallback
-
-### Dependencies
-
-- AndroidX AppCompat
-- Material Design Components
-- Kotlin Coroutines
-- AndroidX Lifecycle
-- Core Library Desugaring (for Java 8+ features on older Android versions)
-
-### Permissions
-
-- `ACCESS_FINE_LOCATION`: For precise GPS location detection
-- `ACCESS_COARSE_LOCATION`: For network-based location detection
-- `INTERNET`: For weather data and location services
-
-## Development
-
-### Project Structure
-
-```
-app/src/main/
-├── java/com/jozefhalaga/weatherwidget/
-│   ├── MainActivity.kt              # Main app configuration
-│   ├── HelloWidgetProvider.kt       # Widget implementation
-│   └── LocationManager.kt           # Location services
-├── res/
-│   ├── layout/
-│   │   ├── activity_main.xml        # Main app layout
-│   │   └── hello_widget.xml         # Widget layout
-│   └── values/                      # Strings, colors, styles
-└── AndroidManifest.xml
+### 📱 Permissions Required
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 ```
 
-### Building and Testing
+## 👨‍💻 Development
 
+### 📁 Project Structure
+```
+app/src/main/java/com/jozefhalaga/weatherwidget/
+├── MainActivity.kt                  # Configuration UI
+├── HelloWidgetProvider.kt           # Main widget provider
+├── ForecastWidgetService.kt         # Widget data & display logic  
+├── WeatherService.kt                # Weather API integration
+└── WeatherLocationManager.kt        # Location & search services
+
+app/src/main/res/
+├── layout/
+│   ├── activity_main.xml           # Main app layout
+│   ├── hello_widget.xml            # Widget layout  
+│   └── forecast_item.xml           # Individual forecast items
+├── drawable/                       # 12 weather icons + app icon
+└── values/                         # Strings, colors, styles
+```
+
+### 🔨 Development Commands
 ```bash
-# Clean project
-.\gradlew.bat clean
+# Build & install debug
+./gradlew installDebug
+
+# Build release APK  
+./gradlew assembleRelease
 
 # Run tests
-.\gradlew.bat test
+./gradlew test
 
-# Install debug version
-.\gradlew.bat installDebug
-
-# Generate release APK
-.\gradlew.bat assembleRelease
+# Clean build
+./gradlew clean
 ```
 
-### Widget Development Notes
+### 🧩 Widget Architecture
+- **Real Data**: Live weather from Open-Meteo API (no more demo data!)
+- **Smart Caching**: 2-hour cache to minimize API calls
+- **Time Alignment**: Hourly forecasts show exact ":00" times from server
+- **Fallback Hierarchy**: GPS → Network → IP-based → Error state
+- **Dual Modes**: Toggle between hourly/daily forecasts
 
-- Widget updates are handled in `HelloWidgetProvider.onUpdate()`
-- Location detection uses a fallback hierarchy: GPS → Network → IP-based
-- Weather data is fetched from Open-Meteo API with 16-day forecasts including weather codes
-- Widget layout supports up to 16 days of forecast data with weather icons
-- Weather icons are mapped from WMO weather codes to 12 distinct visual categories
+## 🤝 Contributing
 
-## ~~Contributing~~
+Contributions welcome! Please:
 
-~~Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.~~
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
+3. **Commit** changes (`git commit -m 'Add amazing feature'`)
+4. **Push** to branch (`git push origin feature/amazing-feature`)
+5. **Open** a Pull Request
 
-### ~~Development Guidelines~~
+### 🐛 Issues
+Found a bug? Please [open an issue](../../issues) with:
+- Device model & Android version
+- Steps to reproduce
+- Expected vs actual behavior
+- Screenshots (if applicable)
 
-~~1. Follow Kotlin coding conventions
-2. Maintain compatibility with Android API 24+
-3. Test on multiple device sizes and Android versions
-4. Update documentation for new features~~
+## 📄 License
 
-### ~~Reporting Issues~~
+This project is **open source** and available under the MIT License.
 
-~~Please use the GitHub issue tracker to report bugs or request features. Include:~~
-- ~~Android version and device model~~
-- ~~Steps to reproduce the issue~~
-- ~~Expected vs actual behavior~~
-- ~~Screenshots if applicable~~
+## 🙏 Acknowledgments
 
-## License
+- **[Open-Meteo](https://open-meteo.com/)** - Free weather API (no key required!)
+- **[BigDataCloud](https://www.bigdatacloud.com/)** - Geocoding services  
+- **[OpenStreetMap Nominatim](https://nominatim.openstreetmap.org/)** - City search
+- **[Material Design](https://material.io/)** - Design system
+- **Weather icons** - Custom designed for clarity and recognition
 
-This project is open source.
+## 📈 Changelog
 
-## Acknowledgments
+### v3.0 - Real Weather Integration ✨
+- 🌍 **Real weather data** from Open-Meteo API (no more demo data!)
+- ⏰ **Hourly precision** - shows exact ":00" times aligned with server
+- 🔄 **Smart caching** - 2-hour cache to minimize API calls
+- 🗂️ **Dual forecast modes** - toggle between hourly (48h) and daily (16d)
+- 🛰️ **Enhanced location services** - better GPS and city search
+- 🐛 **Bug fixes** - proper time alignment and error handling
 
-- [Open-Meteo](https://open-meteo.com/) for providing free weather data
-- [BigDataCloud](https://www.bigdatacloud.com/) for geocoding services
-- [Material Design](https://material.io/) for design guidelines
+### v2.1 - Visual Enhancement
+- 🎨 Added 12 weather icons based on WMO codes
+- 📖 Interactive weather legend in app
+- ✨ Enhanced visual representation
 
-## Changelog
+### v2.0 - Location Improvements  
+- 🔍 Improved city search functionality
+- 🌏 Better international location handling
+- 🎨 UI improvements and bug fixes
 
-### Version 2.1
-- Added weather icons to widget display
-- 12 different weather condition icons based on WMO weather codes
-- Enhanced visual representation of weather conditions
-- Added collapsible weather icons legend in main app
-- Interactive help section for understanding weather symbols
-
-### Version 2.0
-- Improved location search functionality
-- Enhanced city name display logic
-- Better handling of international location names
-- UI improvements and bug fixes
-
-### Version 1.0
-- Initial release
-- Basic weather widget functionality
-- GPS and custom location support
-
-## 🎨 App Icon Design
-
-The Weather Widget app features a custom-designed icon that represents the core functionality:
-
-### Icon Elements:
-- **Sky Gradient Background**: A beautiful sky blue gradient from light blue at top to soft blue at bottom
-- **Golden Sun**: Centrally positioned sun with radiating rays
-- **White Cloud**: Puffy cloud overlay representing weather conditions
-- **Rain Drops**: Blue teardrop shapes showing precipitation
-- **Adaptive Design**: Uses Android's adaptive icon system for consistent appearance across devices
-
-The icon combines multiple weather elements (sun, cloud, rain) to instantly communicate that this is a comprehensive weather application, while maintaining a clean, modern aesthetic that fits well with Material Design principles.
-
-### Technical Implementation:
-- Adaptive icon with separate background and foreground layers
-- Vector-based design for crisp rendering at all sizes
-- Optimized for different Android versions and device types
+### v1.0 - Initial Release
+- 📱 Basic weather widget functionality
+- 📍 GPS and custom location support
 
 ---
+
+## ⭐ Star this repo if you find it useful!
+
+Made with ❤️ for the Android community
 
 
