@@ -1,11 +1,13 @@
 package com.jozefhalaga.weatherwidget
 
 import android.Manifest
+import android.app.AlertDialog
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.*
@@ -13,11 +15,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.button.MaterialButton
-import com.google.android.material.card.MaterialCardView
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
-import com.google.android.material.textfield.TextInputEditText
+import android.widget.EditText
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -27,18 +27,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var locationRadioGroup: RadioGroup
     private lateinit var radioAutoLocation: RadioButton
     private lateinit var radioCustomLocation: RadioButton
-    private lateinit var customLocationCard: MaterialCardView
-    private lateinit var citySearchEditText: TextInputEditText
-    private lateinit var searchCityButton: MaterialButton
+    private lateinit var customLocationCard: LinearLayout
+    private lateinit var citySearchEditText: EditText
+    private lateinit var searchCityButton: TextView
     private lateinit var searchResultsLabel: TextView
     private lateinit var searchResultsChipGroup: ChipGroup
     private lateinit var selectedLocationText: TextView
-    private lateinit var refreshLocationButton: MaterialButton
-    private lateinit var saveSettingsButton: MaterialButton
-    private lateinit var updateWidgetsButton: MaterialButton
+    private lateinit var refreshLocationButton: TextView
+    private lateinit var saveSettingsButton: TextView
     private lateinit var statusText: TextView
-    private lateinit var helpToggleButton: MaterialButton
-    private lateinit var helpContentLayout: LinearLayout
+    private lateinit var helpIcon: TextView
 
     private var currentLocationData: LocationData? = null
     private var selectedCustomLocation: LocationData? = null
@@ -79,10 +77,8 @@ class MainActivity : AppCompatActivity() {
         selectedLocationText = findViewById(R.id.selectedLocationText)
         refreshLocationButton = findViewById(R.id.refreshLocationButton)
         saveSettingsButton = findViewById(R.id.saveSettingsButton)
-        updateWidgetsButton = findViewById(R.id.updateWidgetsButton)
         statusText = findViewById(R.id.statusText)
-        helpToggleButton = findViewById(R.id.helpToggleButton)
-        helpContentLayout = findViewById(R.id.helpContentLayout)
+        helpIcon = findViewById(R.id.helpIcon)
         
         currentLocationText.text = "Ready to detect location"
     }
@@ -132,12 +128,8 @@ class MainActivity : AppCompatActivity() {
             saveCurrentSettings()
         }
 
-        updateWidgetsButton.setOnClickListener {
-            updateAllWidgets()
-        }
-
-        helpToggleButton.setOnClickListener {
-            toggleHelpSection()
+        helpIcon.setOnClickListener {
+            showWeatherIconsDialog()
         }
 
         searchCityButton.setOnClickListener {
@@ -220,17 +212,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun toggleHelpSection() {
+    private fun showWeatherIconsDialog() {
         try {
-            if (helpContentLayout.visibility == View.GONE) {
-                helpContentLayout.visibility = View.VISIBLE
-                helpToggleButton.text = "Hide"
-            } else {
-                helpContentLayout.visibility = View.GONE
-                helpToggleButton.text = "Show"
+            val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_weather_icons, null)
+            val closeButton = dialogView.findViewById<TextView>(R.id.closeButton)
+            
+            val dialog = AlertDialog.Builder(this)
+                .setView(dialogView)
+                .setCancelable(true)
+                .create()
+            
+            closeButton.setOnClickListener {
+                dialog.dismiss()
             }
+            
+            dialog.show()
         } catch (e: Exception) {
-            showStatus("Error toggling help section: ${e.message}")
+            showStatus("Error showing weather icons dialog: ${e.message}")
         }
     }
 
@@ -339,8 +337,8 @@ class MainActivity : AppCompatActivity() {
             when (locationRadioGroup.checkedRadioButtonId) {
                 R.id.radioAutoLocation -> {
                     WeatherLocationManager.saveLocationPreference(this, false)
-                    showStatus("Settings saved! Using GPS location.", 2000)
                     updateAllWidgets()
+                    showStatus("Settings saved! Widgets updated with GPS location.", 2000)
                 }
                 R.id.radioCustomLocation -> {
                     if (selectedCustomLocation != null) {
@@ -349,8 +347,8 @@ class MainActivity : AppCompatActivity() {
                         updateLocationDisplay(selectedCustomLocation!!)
                         // Cache the custom location for widget use
                         WeatherLocationManager.cacheLocationData(this, selectedCustomLocation!!)
-                        showStatus("Settings saved! Using ${selectedCustomLocation!!.city}.", 2000)
                         updateAllWidgets()
+                        showStatus("Settings saved! Widgets updated with ${selectedCustomLocation!!.city}.", 2000)
                     } else {
                         showStatus("Please select a location first")
                     }

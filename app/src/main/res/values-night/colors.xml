@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Legacy colors -->
     <color name="purple_200">#FFBB86FC</color>
     <color name="purple_500">#FF6200EE</color>
     <color name="purple_700">#FF3700B3</color>
@@ -8,15 +9,17 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     
-    <color name="neumo_background">#F0F0F3</color>
+    <!-- Neumorphic Design Colors - Dark Theme -->
+    <color name="neumo_background">@color/neumo_background_dark</color>
     <color name="neumo_background_dark">#2D2D30</color>
     
-    <color name="neumo_surface">#F0F0F3</color>
-    <color name="neumo_surface_raised">#F5F5F8</color>
-    <color name="neumo_surface_pressed">#E8E8EB</color>
+    <!-- Dark theme neumorphic colors -->
+    <color name="neumo_surface">@color/neumo_surface_dark</color>
+    <color name="neumo_surface_raised">@color/neumo_surface_raised_dark</color>
+    <color name="neumo_surface_pressed">@color/neumo_surface_pressed_dark</color>
     
-    <color name="neumo_shadow_light">#FFFFFF</color>
-    <color name="neumo_shadow_dark">#D1D9E6</color>
+    <color name="neumo_shadow_light">@color/neumo_shadow_light_dark</color>
+    <color name="neumo_shadow_dark">@color/neumo_shadow_dark_dark</color>
     
     <color name="neumo_surface_dark">#2D2D30</color>
     <color name="neumo_surface_raised_dark">#353538</color>
@@ -25,17 +28,19 @@
     <color name="neumo_shadow_light_dark">#3A3A3D</color>
     <color name="neumo_shadow_dark_dark">#1F1F22</color>
     
-    <color name="neumo_text_primary">#3C4043</color>
-    <color name="neumo_text_secondary">#5F6368</color>
-    <color name="neumo_text_hint">#9AA0A6</color>
+    <!-- Text colors for dark theme -->
+    <color name="neumo_text_primary">@color/neumo_text_primary_dark</color>
+    <color name="neumo_text_secondary">@color/neumo_text_secondary_dark</color>
+    <color name="neumo_text_hint">@color/neumo_text_hint_dark</color>
     
     <color name="neumo_text_primary_dark">#E8EAED</color>
     <color name="neumo_text_secondary_dark">#9AA0A6</color>
     <color name="neumo_text_hint_dark">#5F6368</color>
     
+    <!-- Accent colors (same for both themes) -->
     <color name="neumo_accent">#4285F4</color>
     <color name="neumo_accent_light">#6AB7FF</color>
     <color name="neumo_success">#34A853</color>
     <color name="neumo_warning">#FBBC04</color>
     <color name="neumo_error">#EA4335</color>
-</resources>
+</resources> 

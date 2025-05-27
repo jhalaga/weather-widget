@@ -1,16 +1,28 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Theme.WeatherWidget" parent="Theme.Material3.DayNight">
-        <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/purple_500</item>
-        <item name="colorPrimaryVariant">@color/purple_700</item>
+        <!-- Neumorphic colors -->
+        <item name="colorPrimary">@color/neumo_accent</item>
+        <item name="colorPrimaryVariant">@color/neumo_accent</item>
         <item name="colorOnPrimary">@color/white</item>
-        <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryVariant">@color/teal_700</item>
-        <item name="colorOnSecondary">@color/black</item>
+        
+        <item name="colorSecondary">@color/neumo_accent_light</item>
+        <item name="colorSecondaryVariant">@color/neumo_accent</item>
+        <item name="colorOnSecondary">@color/white</item>
+        
+        <item name="colorSurface">@color/neumo_surface</item>
+        <item name="colorOnSurface">@color/neumo_text_primary</item>
+        <item name="colorOnSurfaceVariant">@color/neumo_text_secondary</item>
+        
+        <item name="android:colorBackground">@color/neumo_background</item>
+        <item name="colorOnBackground">@color/neumo_text_primary</item>
+        
         <!-- Status bar color. -->
-        <item name="android:statusBarColor" tools:targetApi="l">?attr/colorPrimaryVariant</item>
-        <!-- Customize your theme here. -->
+        <item name="android:statusBarColor" tools:targetApi="l">@color/neumo_background</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
+        
+        <!-- Navigation bar -->
+        <item name="android:navigationBarColor" tools:targetApi="l">@color/neumo_background</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o">true</item>
     </style>
 </resources>
