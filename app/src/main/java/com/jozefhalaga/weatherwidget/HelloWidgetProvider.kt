@@ -1,167 +1,150 @@
 package com.jozefhalaga.weatherwidget
 
-import android.Manifest
+import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
-import android.content.pm.PackageManager
-import android.location.Location
-import android.location.LocationManager
+import android.content.Intent
+import android.net.Uri
 import android.widget.RemoteViews
-import androidx.core.content.ContextCompat
-import org.json.JSONObject
-import java.net.URL
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import kotlin.concurrent.thread
+
 
 class HelloWidgetProvider : AppWidgetProvider() {
-  override fun onUpdate(
-    context: Context,
-    appWidgetManager: AppWidgetManager,
-    appWidgetIds: IntArray
-  ) {
-    appWidgetIds.forEach { widgetId ->
-      thread {
-        try {
-          // 1) Get location using the improved location manager
-          val locationData = kotlin.runCatching { 
-            // Since we can't use suspend functions in this context, we need to use a blocking approach
-            if (WeatherLocationManager.isUsingCustomLocation(context)) {
-              WeatherLocationManager.getCustomLocation(context) ?: getFallbackIPLocation()
-            } else {
-              getPreciseLocationBlocking(context) ?: getFallbackIPLocation()
-            }
-          }.getOrElse { getFallbackIPLocation() }
+  
+  companion object {
+    const val ACTION_TOGGLE_FORECAST = "com.jozefhalaga.weatherwidget.TOGGLE_FORECAST"
+  }
 
-          val lat = locationData.latitude
-          val lon = locationData.longitude
-          val city = locationData.city
+  override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+    for (appWidgetId in appWidgetIds) {
+      updateAppWidget(context, appWidgetManager, appWidgetId)
+    }
+  }
 
-          // 2) Update location header
-          val views = RemoteViews(context.packageName, R.layout.hello_widget)
-          views.setTextViewText(R.id.location_info, "$city ($lat, $lon)")
+  override fun onReceive(context: Context, intent: Intent) {
+    super.onReceive(context, intent)
+    
+    if (intent.action == ACTION_TOGGLE_FORECAST) {
+      val appWidgetManager = AppWidgetManager.getInstance(context)
+      val appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, 
+        AppWidgetManager.INVALID_APPWIDGET_ID)
+      
+      if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+        // Toggle forecast mode
+        val isCurrentlyHourly = WeatherLocationManager.isHourlyMode(context)
+        WeatherLocationManager.saveForecastMode(context, !isCurrentlyHourly)
+        
+        // Update the widget
+        updateAppWidget(context, appWidgetManager, appWidgetId)
+        
+        // Notify the ListView to refresh its data
+        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.forecast_list)
+      }
+    }
+  }
 
-          // 3) Fetch 16-day forecast
-          val urlString = "https://api.open-meteo.com/v1/forecast" +
-              "?latitude=$lat&longitude=$lon" +
-              "&daily=temperature_2m_max,temperature_2m_min,weather_code" +
-              "&forecast_days=16" +
-              "&timezone=auto"
-          val raw = URL(urlString).openConnection().run {
-            inputStream.bufferedReader().readText()
-          }
-          val daily    = JSONObject(raw).getJSONObject("daily")
-          val dates    = daily.getJSONArray("time")
-          val maxTemps = daily.getJSONArray("temperature_2m_max")
-          val minTemps = daily.getJSONArray("temperature_2m_min")
-          val weatherCodes = daily.getJSONArray("weather_code")
+  private fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
+    try {
+      val views = RemoteViews(context.packageName, R.layout.hello_widget)
+      
+      // Update toggle button text
+      val isHourly = WeatherLocationManager.isHourlyMode(context)
+      views.setTextViewText(R.id.toggle_forecast, if (isHourly) "Hourly" else "Daily")
+      
+      // Set up toggle button click
+      val toggleIntent = Intent(context, HelloWidgetProvider::class.java).apply {
+        action = ACTION_TOGGLE_FORECAST
+        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+        data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
+      }
+      val togglePendingIntent = PendingIntent.getBroadcast(
+        context, appWidgetId, toggleIntent, 
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      )
+      views.setOnClickPendingIntent(R.id.toggle_forecast, togglePendingIntent)
+      
+      // Setup forecast list with proper adapter
+      setupForecastList(context, views, appWidgetId)
+      
+      // Set location info with coordinates from app settings
+      val locationText = getLocationDisplayText(context)
+      views.setTextViewText(R.id.location_info, locationText)
+      views.setViewVisibility(R.id.status_message, android.view.View.GONE)
+      
+      appWidgetManager.updateAppWidget(appWidgetId, views)
+      
+    } catch (e: Exception) {
+      e.printStackTrace()
+      // Show error state
+      val views = RemoteViews(context.packageName, R.layout.hello_widget)
+      views.setTextViewText(R.id.location_info, "Error loading widget")
+      views.setViewVisibility(R.id.status_message, android.view.View.VISIBLE)
+      views.setTextViewText(R.id.status_message, "Widget error")
+      appWidgetManager.updateAppWidget(appWidgetId, views)
+    }
+  }
+  
+  private fun setupForecastList(context: Context, views: RemoteViews, appWidgetId: Int) {
+    // Set up the intent that points to the RemoteViewsService
+    val intent = Intent(context, ForecastWidgetService::class.java).apply {
+      putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+      data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
+    }
+    
+    // Set the RemoteViewsService on the ListView
+    views.setRemoteAdapter(R.id.forecast_list, intent)
+    
+    // Set the empty view
+    views.setEmptyView(R.id.forecast_list, R.id.status_message)
+  }
 
-          // 4) Populate 16 days
-          val dfDate = DateTimeFormatter.ofPattern("d.M.")
-          val dfDay  = DateTimeFormatter.ofPattern("EEE")
-          for (i in 0 until minOf(16, dates.length())) {
-            val ld      = LocalDate.parse(dates.getString(i), DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-            val dateStr = ld.format(dfDate)
-            val dayStr  = ld.format(dfDay)
-            val maxStr  = maxTemps.getDouble(i).toInt().toString() + "°"
-            val minStr  = minTemps.getDouble(i).toInt().toString() + "°"
-            val weatherCode = weatherCodes.getInt(i)
-
-            fun id(name: String) = context.resources.getIdentifier("$name$i", "id", context.packageName)
-            views.setTextViewText(id("date"), dateStr)
-            views.setTextViewText(id("day"),  dayStr)
-            views.setTextViewText(id("temp"), maxStr)
-            views.setTextViewText(id("min"),  minStr)
-            views.setImageViewResource(id("icon"), getWeatherIcon(weatherCode))
-          }
-
-          appWidgetManager.updateAppWidget(widgetId, views)
-        } catch (e: Exception) {
-          val views = RemoteViews(context.packageName, R.layout.hello_widget)
-          views.setTextViewText(R.id.date0, "Err")
-          appWidgetManager.updateAppWidget(widgetId, views)
+  private fun getLocationDisplayText(context: Context): String {
+    return try {
+      // Check if using custom location first
+      val customLocation = WeatherLocationManager.getCustomLocation(context)
+      if (customLocation != null) {
+        // Format custom location with 4 decimal places
+        val lat = String.format("%.4f", customLocation.latitude)
+        val lon = String.format("%.4f", customLocation.longitude)
+        "${customLocation.city} ($lat, $lon)"
+      } else {
+        // Try to get cached location data
+        val cachedLocation = WeatherLocationManager.getCachedLocationData(context)
+        if (cachedLocation != null) {
+          val lat = String.format("%.4f", cachedLocation.latitude)
+          val lon = String.format("%.4f", cachedLocation.longitude)
+          "${cachedLocation.city} ($lat, $lon)"
+        } else {
+          // Fallback to default message
+          "Location not set"
         }
       }
-    }
-  }
-
-  private fun getPreciseLocationBlocking(context: Context): LocationData? {
-    if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-      return null
-    }
-
-    val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    
-    // First try to get a fresh location from GPS
-    if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-      val gpsLoc = kotlin.runCatching { lm.getLastKnownLocation(LocationManager.GPS_PROVIDER) }.getOrNull()
-      if (gpsLoc != null && System.currentTimeMillis() - gpsLoc.time < 300000) { // 5 minutes fresh
-        val city = getCityFromCoordinatesBlocking(gpsLoc.latitude, gpsLoc.longitude)
-        return LocationData(gpsLoc.latitude, gpsLoc.longitude, city)
-      }
-    }
-    
-    // Fallback to network location
-    if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-      val netLoc = kotlin.runCatching { lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER) }.getOrNull()
-      if (netLoc != null) {
-        val city = getCityFromCoordinatesBlocking(netLoc.latitude, netLoc.longitude)
-        return LocationData(netLoc.latitude, netLoc.longitude, city)
-      }
-    }
-    
-    return null
-  }
-
-  private fun getCityFromCoordinatesBlocking(lat: Double, lon: Double): String {
-    return try {
-      val url = "https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=$lat&longitude=$lon&localityLanguage=en"
-      val response = URL(url).openConnection().run {
-        connectTimeout = 5000
-        readTimeout = 5000
-        inputStream.bufferedReader().readText()
-      }
-      val json = JSONObject(response)
-      json.optString("city", "") ?: json.optString("locality", "Unknown Location")
     } catch (e: Exception) {
-      "Current Location"
+      "Weather Widget"
     }
   }
 
-  private fun getFallbackIPLocation(): LocationData {
-    return try {
-      val geoJson = URL("https://geolocation-db.com/json/").openConnection().run {
-        connectTimeout = 5000
-        readTimeout = 5000
-        inputStream.bufferedReader().readText()
-      }
-      val geoJo = JSONObject(geoJson)
-      val city = geoJo.optString("city", "Unknown Location")
-      val lat = geoJo.getDouble("latitude")
-      val lon = geoJo.getDouble("longitude")
-      LocationData(lat, lon, city)
-    } catch (e: Exception) {
-      // Default fallback location (London)
-      LocationData(51.5074, -0.1278, "London")
+  private fun getWeatherIcon(code: Int): Int {
+    return when (code) {
+      0 -> R.drawable.weather_sunny // Clear sky
+      1 -> R.drawable.weather_partly_cloudy // Mainly clear
+      2 -> R.drawable.weather_partly_cloudy // Partly cloudy
+      3 -> R.drawable.weather_partly_cloudy // Overcast
+      45, 48 -> R.drawable.weather_fog // Fog and depositing rime fog
+      51, 53, 55 -> R.drawable.weather_drizzle // Drizzle: Light, moderate, and dense intensity
+      56, 57 -> R.drawable.weather_snowy_rainy // Freezing Drizzle: Light and dense intensity
+      61, 63 -> R.drawable.weather_rainy // Rain: Slight and moderate intensity
+      65 -> R.drawable.weather_pouring // Rain: Heavy intensity
+      66, 67 -> R.drawable.weather_snowy_rainy // Freezing Rain: Light and heavy intensity
+      71, 73 -> R.drawable.weather_snowy // Snow fall: Slight and moderate intensity
+      75 -> R.drawable.weather_snowy_heavy // Snow fall: Heavy intensity
+      77 -> R.drawable.weather_hail // Snow grains
+      80, 81, 82 -> R.drawable.weather_pouring // Rain showers: Slight, moderate, and violent
+      85, 86 -> R.drawable.weather_snowy_heavy // Snow showers: Slight and heavy
+      95 -> R.drawable.weather_lightning_rainy // Thunderstorm: Slight or moderate
+      96, 99 -> R.drawable.weather_lightning_rainy // Thunderstorm with slight and heavy hail
+      else -> R.drawable.weather_sunny // Default to sunny
     }
   }
 
-  private fun getWeatherIcon(weatherCode: Int): Int {
-    return when (weatherCode) {
-      0 -> R.drawable.weather_sunny                    // Clear
-      1, 2, 3 -> R.drawable.weather_partly_cloudy      // Partly Cloudy
-      45, 48 -> R.drawable.weather_fog                 // Fog
-      51, 53, 55 -> R.drawable.weather_drizzle         // Light Drizzle
-      56, 57 -> R.drawable.weather_snowy_rainy         // Freezing Drizzle
-      61, 63, 65 -> R.drawable.weather_rainy           // Rain
-      66, 67 -> R.drawable.weather_snowy_rainy         // Freezing Rain
-      71, 73, 75 -> R.drawable.weather_snowy           // Snow
-      77 -> R.drawable.weather_hail                    // Snow Grains
-      80, 81, 82 -> R.drawable.weather_pouring         // Rain Showers
-      85, 86 -> R.drawable.weather_snowy_heavy         // Snow Showers
-      95, 96, 99 -> R.drawable.weather_lightning_rainy // Thunderstorm
-      else -> R.drawable.weather_partly_cloudy         // Default fallback
-    }
-  }
 }

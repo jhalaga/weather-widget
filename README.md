@@ -95,6 +95,7 @@ The app offers two location modes:
 - **Search Results**: Tap on search results to select a location
 - **Save Settings**: Apply your location preferences
 - **Update Widgets**: Manually refresh all widgets on your home screen
+- **Weather Icons Legend**: Expandable help section showing all weather icon meanings
 
 ## Technical Details
 
@@ -208,6 +209,8 @@ This project is open source.
 - Added weather icons to widget display
 - 12 different weather condition icons based on WMO weather codes
 - Enhanced visual representation of weather conditions
+- Added collapsible weather icons legend in main app
+- Interactive help section for understanding weather symbols
 
 ### Version 2.0
 - Improved location search functionality

@@ -37,6 +37,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var saveSettingsButton: MaterialButton
     private lateinit var updateWidgetsButton: MaterialButton
     private lateinit var statusText: TextView
+    private lateinit var helpToggleButton: MaterialButton
+    private lateinit var helpContentLayout: LinearLayout
 
     private var currentLocationData: LocationData? = null
     private var selectedCustomLocation: LocationData? = null
@@ -79,6 +81,8 @@ class MainActivity : AppCompatActivity() {
         saveSettingsButton = findViewById(R.id.saveSettingsButton)
         updateWidgetsButton = findViewById(R.id.updateWidgetsButton)
         statusText = findViewById(R.id.statusText)
+        helpToggleButton = findViewById(R.id.helpToggleButton)
+        helpContentLayout = findViewById(R.id.helpContentLayout)
         
         currentLocationText.text = "Ready to detect location"
     }
@@ -130,6 +134,10 @@ class MainActivity : AppCompatActivity() {
 
         updateWidgetsButton.setOnClickListener {
             updateAllWidgets()
+        }
+
+        helpToggleButton.setOnClickListener {
+            toggleHelpSection()
         }
 
         searchCityButton.setOnClickListener {
@@ -212,6 +220,20 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun toggleHelpSection() {
+        try {
+            if (helpContentLayout.visibility == View.GONE) {
+                helpContentLayout.visibility = View.VISIBLE
+                helpToggleButton.text = "Hide"
+            } else {
+                helpContentLayout.visibility = View.GONE
+                helpToggleButton.text = "Show"
+            }
+        } catch (e: Exception) {
+            showStatus("Error toggling help section: ${e.message}")
+        }
+    }
+
     private fun loadCurrentSettings() {
         try {
             val isUsingCustom = WeatherLocationManager.isUsingCustomLocation(this)
@@ -226,6 +248,8 @@ class MainActivity : AppCompatActivity() {
                     selectLocation(customLocation)
                     currentLocationData = customLocation
                     updateLocationDisplay(customLocation)
+                    // Cache the custom location for widget use
+                    WeatherLocationManager.cacheLocationData(this, customLocation)
                 }
             } else {
                 radioAutoLocation.isChecked = true
@@ -277,6 +301,8 @@ class MainActivity : AppCompatActivity() {
                 val location = WeatherLocationManager.getCurrentLocation(this@MainActivity)
                 currentLocationData = location
                 updateLocationDisplay(location)
+                // Cache the location for widget use
+                WeatherLocationManager.cacheLocationData(this@MainActivity, location)
                 showStatus("Location updated successfully!", 2000)
             } catch (e: Exception) {
                 showStatus("Error getting location: ${e.message}", 3000)
@@ -286,6 +312,8 @@ class MainActivity : AppCompatActivity() {
                     val fallback = LocationData(51.5074, -0.1278, "London (Fallback)")
                     currentLocationData = fallback
                     updateLocationDisplay(fallback)
+                    // Cache the fallback location for widget use
+                    WeatherLocationManager.cacheLocationData(this@MainActivity, fallback)
                 } catch (fallbackError: Exception) {
                     currentLocationText.text = "Unable to determine location"
                 }
@@ -319,6 +347,8 @@ class MainActivity : AppCompatActivity() {
                         WeatherLocationManager.saveLocationPreference(this, true, selectedCustomLocation)
                         currentLocationData = selectedCustomLocation
                         updateLocationDisplay(selectedCustomLocation!!)
+                        // Cache the custom location for widget use
+                        WeatherLocationManager.cacheLocationData(this, selectedCustomLocation!!)
                         showStatus("Settings saved! Using ${selectedCustomLocation!!.city}.", 2000)
                         updateAllWidgets()
                     } else {
@@ -383,6 +413,8 @@ class MainActivity : AppCompatActivity() {
                         val fallback = LocationData(51.5074, -0.1278, "London (Fallback)")
                         currentLocationData = fallback
                         updateLocationDisplay(fallback)
+                        // Cache the fallback location for widget use
+                        WeatherLocationManager.cacheLocationData(this, fallback)
                     } catch (e: Exception) {
                         currentLocationText.text = "Unable to determine location"
                     }

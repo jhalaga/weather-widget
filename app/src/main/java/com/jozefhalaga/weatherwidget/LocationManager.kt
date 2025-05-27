@@ -36,6 +36,7 @@ object WeatherLocationManager {
     private const val KEY_CUSTOM_LAT = "custom_lat"
     private const val KEY_CUSTOM_LON = "custom_lon"
     private const val KEY_CUSTOM_CITY = "custom_city"
+    private const val KEY_FORECAST_MODE = "forecast_mode"
 
     private fun getPrefs(context: Context): SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -68,6 +69,46 @@ object WeatherLocationManager {
         
         if (lat == 0.0 && lon == 0.0) return null
         return LocationData(lat, lon, city, true)
+    }
+
+    fun saveForecastMode(context: Context, isHourly: Boolean) {
+        val prefs = getPrefs(context)
+        prefs.edit().apply {
+            putBoolean(KEY_FORECAST_MODE, isHourly)
+            apply()
+        }
+    }
+
+    fun isHourlyMode(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_FORECAST_MODE, false) // Default to daily
+    }
+
+    // Cache location data for widget use
+    fun cacheLocationData(context: Context, locationData: LocationData) {
+        val prefs = context.getSharedPreferences("weather_location_cache", Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            putString("cached_city", locationData.city)
+            putFloat("cached_lat", locationData.latitude.toFloat())
+            putFloat("cached_lon", locationData.longitude.toFloat())
+            putLong("cached_timestamp", System.currentTimeMillis())
+            apply()
+        }
+    }
+
+    fun getCachedLocationData(context: Context): LocationData? {
+        val prefs = context.getSharedPreferences("weather_location_cache", Context.MODE_PRIVATE)
+        val city = prefs.getString("cached_city", null) ?: return null
+        val lat = prefs.getFloat("cached_lat", 0f)
+        val lon = prefs.getFloat("cached_lon", 0f)
+        val timestamp = prefs.getLong("cached_timestamp", 0)
+        
+        // Check if cache is not too old (24 hours)
+        if (System.currentTimeMillis() - timestamp > 24 * 60 * 60 * 1000) {
+            return null
+        }
+        
+        if (lat == 0f && lon == 0f) return null
+        return LocationData(lat.toDouble(), lon.toDouble(), city)
     }
 
     suspend fun searchCities(query: String): List<SearchResult> = withContext(Dispatchers.IO) {
