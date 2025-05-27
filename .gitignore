@@ -13,3 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Release APKs (remove this line if you want to commit APKs to git)
+releases/

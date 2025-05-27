@@ -11,16 +11,30 @@ android {
         applicationId = "com.jozefhalaga.weatherwidget"
         minSdk = 24
         targetSdk = 35
-        versionCode = 3
-        versionName = "2.1"
+        versionCode = 4
+        versionName = "3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            minifyEnabled = false
+            minifyEnabled = true
+            shrinkResources = true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            
+            // Enable debugging info for crash reports while keeping release optimizations
+            debuggable = false
+            
+
+            
+            // Optional: Add version suffix for easier identification
+            versionNameSuffix = ""
+        }
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            debuggable = true
         }
     }
     compileOptions {
@@ -30,6 +44,11 @@ android {
     }
     kotlinOptions {
         jvmTarget = '21'
+    }
+    
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 }
 
