@@ -223,4 +223,24 @@ This project is open source.
 - Basic weather widget functionality
 - GPS and custom location support
 
+## 🎨 App Icon Design
+
+The Weather Widget app features a custom-designed icon that represents the core functionality:
+
+### Icon Elements:
+- **Sky Gradient Background**: A beautiful sky blue gradient from light blue at top to soft blue at bottom
+- **Golden Sun**: Centrally positioned sun with radiating rays
+- **White Cloud**: Puffy cloud overlay representing weather conditions
+- **Rain Drops**: Blue teardrop shapes showing precipitation
+- **Adaptive Design**: Uses Android's adaptive icon system for consistent appearance across devices
+
+The icon combines multiple weather elements (sun, cloud, rain) to instantly communicate that this is a comprehensive weather application, while maintaining a clean, modern aesthetic that fits well with Material Design principles.
+
+### Technical Implementation:
+- Adaptive icon with separate background and foreground layers
+- Vector-based design for crisp rendering at all sizes
+- Optimized for different Android versions and device types
+
+---
+
 
