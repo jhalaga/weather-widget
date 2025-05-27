@@ -19,6 +19,7 @@ import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import android.widget.EditText
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 class MainActivity : AppCompatActivity() {
     private val LOCATION_REQUEST = 42
@@ -33,8 +34,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var searchResultsLabel: TextView
     private lateinit var searchResultsChipGroup: ChipGroup
     private lateinit var selectedLocationText: TextView
-    private lateinit var refreshLocationButton: TextView
-    private lateinit var saveSettingsButton: TextView
     private lateinit var statusText: TextView
     private lateinit var helpIcon: TextView
 
@@ -51,8 +50,14 @@ class MainActivity : AppCompatActivity() {
             setupEventListeners()
             loadCurrentSettings()
             
-            // Check permissions safely without forcing location request on startup
-            checkPermissionsQuietly()
+            // Automatically detect location if GPS is selected after loading settings
+            if (radioAutoLocation.isChecked) {
+                currentLocationText.text = "Detecting location..."
+                requestLocationSafelyWithRetry()
+            } else {
+                // Check permissions quietly for custom location mode
+                checkPermissionsQuietly()
+            }
             
         } catch (e: Exception) {
             // If there's an error, create a simple fallback layout
@@ -75,12 +80,10 @@ class MainActivity : AppCompatActivity() {
         searchResultsLabel = findViewById(R.id.searchResultsLabel)
         searchResultsChipGroup = findViewById(R.id.searchResultsChipGroup)
         selectedLocationText = findViewById(R.id.selectedLocationText)
-        refreshLocationButton = findViewById(R.id.refreshLocationButton)
-        saveSettingsButton = findViewById(R.id.saveSettingsButton)
         statusText = findViewById(R.id.statusText)
         helpIcon = findViewById(R.id.helpIcon)
         
-        currentLocationText.text = "Ready to detect location"
+        currentLocationText.text = "Detecting location..."
     }
 
     private fun clearSearchResults() {
@@ -98,35 +101,21 @@ class MainActivity : AppCompatActivity() {
         selectedLocationText.text = "${location.city}\nLat: ${String.format("%.4f", location.latitude)}, Lon: ${String.format("%.4f", location.longitude)}"
         selectedLocationText.visibility = View.VISIBLE
         citySearchEditText.setText(location.city)
-        showStatus("Selected: ${location.city}")
+        
+        // Auto-save custom location immediately
+        WeatherLocationManager.saveLocationPreference(this, true, location)
+        currentLocationData = location
+        updateLocationDisplay(location)
+        // Cache the custom location for widget use
+        WeatherLocationManager.cacheLocationData(this, location)
+        // Update widgets automatically
+        updateAllWidgets()
+        
+        showStatus("Location saved: ${location.city}", 3000)
     }
 
     private fun setupEventListeners() {
-        locationRadioGroup.setOnCheckedChangeListener { _, checkedId ->
-            when (checkedId) {
-                R.id.radioAutoLocation -> {
-                    customLocationCard.visibility = View.GONE
-                    clearSearchResults()
-                    showStatus("GPS location selected")
-                }
-                R.id.radioCustomLocation -> {
-                    customLocationCard.visibility = View.VISIBLE
-                    showStatus("Custom location selected")
-                }
-            }
-        }
-
-        refreshLocationButton.setOnClickListener {
-            if (radioAutoLocation.isChecked) {
-                requestLocationSafely()
-            } else {
-                showStatus("Please select GPS location mode to refresh")
-            }
-        }
-
-        saveSettingsButton.setOnClickListener {
-            saveCurrentSettings()
-        }
+        setupRadioGroupListener()
 
         helpIcon.setOnClickListener {
             showWeatherIconsDialog()
@@ -155,6 +144,29 @@ class MainActivity : AppCompatActivity() {
             }
             override fun afterTextChanged(s: android.text.Editable?) {}
         })
+    }
+
+    private fun setupRadioGroupListener() {
+        locationRadioGroup.setOnCheckedChangeListener { _, checkedId ->
+            when (checkedId) {
+                R.id.radioAutoLocation -> {
+                    customLocationCard.visibility = View.GONE
+                    clearSearchResults()
+                    showStatus("GPS location selected - detecting location...")
+                    currentLocationText.text = "Detecting location..."
+                    
+                    // Auto-save GPS preference immediately
+                    WeatherLocationManager.saveLocationPreference(this, false)
+                    
+                    // Start location detection with improved reliability
+                    requestLocationSafelyWithRetry()
+                }
+                R.id.radioCustomLocation -> {
+                    customLocationCard.visibility = View.VISIBLE
+                    showStatus("Select a custom location below")
+                }
+            }
+        }
     }
 
     private fun searchForCity() {
@@ -234,6 +246,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadCurrentSettings() {
         try {
+            // Temporarily disable the radio group listener to prevent unwanted triggers
+            locationRadioGroup.setOnCheckedChangeListener(null)
+            
             val isUsingCustom = WeatherLocationManager.isUsingCustomLocation(this)
             
             if (isUsingCustom) {
@@ -252,12 +267,19 @@ class MainActivity : AppCompatActivity() {
             } else {
                 radioAutoLocation.isChecked = true
                 customLocationCard.visibility = View.GONE
+                // Location will be detected automatically in onCreate
             }
+            
+            // Re-enable the radio group listener after loading settings
+            setupRadioGroupListener()
+            
         } catch (e: Exception) {
             showStatus("Error loading settings: ${e.message}")
             // Set safe defaults
             radioAutoLocation.isChecked = true
             customLocationCard.visibility = View.GONE
+            // Re-enable the listener even in error case
+            setupRadioGroupListener()
         }
     }
 
@@ -269,13 +291,14 @@ class MainActivity : AppCompatActivity() {
         if (hasLocationPermission) {
             showStatus("Location permission available", 2000)
         } else {
-            showStatus("Location permission not granted. Use 'Refresh Location' to request.", 3000)
+            showStatus("Location permission not granted. Select GPS option to grant permission.", 3000)
         }
     }
 
     private fun requestLocationSafely() {
         try {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                showStatus("Requesting location permission...")
                 ActivityCompat.requestPermissions(
                     this,
                     arrayOf(
@@ -289,11 +312,37 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (e: Exception) {
             showStatus("Error requesting location: ${e.message}")
+            // Even if there's an error, try to load fallback location
+            loadCurrentLocationSafely()
+        }
+    }
+
+    private fun requestLocationSafelyWithRetry() {
+        try {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                showStatus("Requesting location permission...")
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    ),
+                    LOCATION_REQUEST
+                )
+            } else {
+                loadCurrentLocationWithRetry()
+            }
+        } catch (e: Exception) {
+            showStatus("Error requesting location: ${e.message}")
+            // Even if there's an error, try to load fallback location
+            loadCurrentLocationWithRetry()
         }
     }
 
     private fun loadCurrentLocationSafely() {
         showStatus("Getting your location...")
+        currentLocationText.text = "Detecting location..."
+        
         lifecycleScope.launch {
             try {
                 val location = WeatherLocationManager.getCurrentLocation(this@MainActivity)
@@ -301,10 +350,26 @@ class MainActivity : AppCompatActivity() {
                 updateLocationDisplay(location)
                 // Cache the location for widget use
                 WeatherLocationManager.cacheLocationData(this@MainActivity, location)
-                showStatus("Location updated successfully!", 2000)
+                
+                // Provide feedback based on location type
+                val feedback = if (location.city.contains("Fallback") || location.city.contains("London")) {
+                    "Location detected using fallback service"
+                } else {
+                    "Location detected: ${location.city}"
+                }
+                showStatus(feedback, 2000)
+                
             } catch (e: Exception) {
-                showStatus("Error getting location: ${e.message}", 3000)
-                currentLocationText.text = "Error loading location - using fallback"
+                val errorMessage = when {
+                    e.message?.contains("timeout") == true -> "Location detection timed out"
+                    e.message?.contains("permission") == true -> "Location permission required"
+                    e.message?.contains("disabled") == true -> "Location services disabled"
+                    else -> "Could not detect location"
+                }
+                
+                showStatus("$errorMessage - using fallback", 3000)
+                currentLocationText.text = "Using fallback location"
+                
                 // Try to get a fallback location
                 try {
                     val fallback = LocationData(51.5074, -0.1278, "London (Fallback)")
@@ -314,6 +379,73 @@ class MainActivity : AppCompatActivity() {
                     WeatherLocationManager.cacheLocationData(this@MainActivity, fallback)
                 } catch (fallbackError: Exception) {
                     currentLocationText.text = "Unable to determine location"
+                    showStatus("Location detection failed completely", 3000)
+                }
+            }
+        }
+    }
+
+    private fun loadCurrentLocationWithRetry() {
+        showStatus("Getting your location...")
+        currentLocationText.text = "Detecting location..."
+        
+        lifecycleScope.launch {
+            var attempt = 1
+            val maxAttempts = 2
+            
+            while (attempt <= maxAttempts) {
+                try {
+                    showStatus("Detecting location... (attempt $attempt/$maxAttempts)")
+                    
+                    val location = WeatherLocationManager.getCurrentLocation(this@MainActivity)
+                    currentLocationData = location
+                    updateLocationDisplay(location)
+                    // Cache the location for widget use
+                    WeatherLocationManager.cacheLocationData(this@MainActivity, location)
+                    
+                    // Update widgets automatically after successful location detection
+                    updateAllWidgets()
+                    
+                    // Provide feedback based on location type
+                    val feedback = if (location.city.contains("Fallback") || location.city.contains("London")) {
+                        "Location detected using fallback service"
+                    } else {
+                        "Location detected: ${location.city}"
+                    }
+                    showStatus(feedback, 3000)
+                    return@launch // Success - exit the function
+                    
+                } catch (e: Exception) {
+                    if (attempt == maxAttempts) {
+                        // Final attempt failed
+                        val errorMessage = when {
+                            e.message?.contains("timeout") == true -> "Location detection timed out"
+                            e.message?.contains("permission") == true -> "Location permission required"
+                            e.message?.contains("disabled") == true -> "Location services disabled"
+                            else -> "Could not detect location"
+                        }
+                        
+                        showStatus("$errorMessage - using fallback", 3000)
+                        currentLocationText.text = "Using fallback location"
+                        
+                        // Try to get a fallback location
+                        try {
+                            val fallback = LocationData(51.5074, -0.1278, "London (Fallback)")
+                            currentLocationData = fallback
+                            updateLocationDisplay(fallback)
+                            // Cache the fallback location for widget use
+                            WeatherLocationManager.cacheLocationData(this@MainActivity, fallback)
+                            updateAllWidgets()
+                        } catch (fallbackError: Exception) {
+                            currentLocationText.text = "Unable to determine location"
+                            showStatus("Location detection failed completely", 3000)
+                        }
+                    } else {
+                        // Not the final attempt, try again
+                        showStatus("Retrying location detection...", 1000)
+                        delay(1500) // Wait before retry
+                        attempt++
+                    }
                 }
             }
         }
@@ -332,32 +464,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun saveCurrentSettings() {
-        try {
-            when (locationRadioGroup.checkedRadioButtonId) {
-                R.id.radioAutoLocation -> {
-                    WeatherLocationManager.saveLocationPreference(this, false)
-                    updateAllWidgets()
-                    showStatus("Settings saved! Widgets updated with GPS location.", 2000)
-                }
-                R.id.radioCustomLocation -> {
-                    if (selectedCustomLocation != null) {
-                        WeatherLocationManager.saveLocationPreference(this, true, selectedCustomLocation)
-                        currentLocationData = selectedCustomLocation
-                        updateLocationDisplay(selectedCustomLocation!!)
-                        // Cache the custom location for widget use
-                        WeatherLocationManager.cacheLocationData(this, selectedCustomLocation!!)
-                        updateAllWidgets()
-                        showStatus("Settings saved! Widgets updated with ${selectedCustomLocation!!.city}.", 2000)
-                    } else {
-                        showStatus("Please select a location first")
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            showStatus("Error saving settings: ${e.message}")
-        }
-    }
+
 
     private fun updateAllWidgets() {
         try {
@@ -403,7 +510,7 @@ class MainActivity : AppCompatActivity() {
         try {
             if (requestCode == LOCATION_REQUEST) {
                 if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    loadCurrentLocationSafely()
+                    loadCurrentLocationWithRetry()
                 } else {
                     showStatus("Location permission denied. Using fallback location.", 3000)
                     // Load fallback location
@@ -413,6 +520,7 @@ class MainActivity : AppCompatActivity() {
                         updateLocationDisplay(fallback)
                         // Cache the fallback location for widget use
                         WeatherLocationManager.cacheLocationData(this, fallback)
+                        updateAllWidgets()
                     } catch (e: Exception) {
                         currentLocationText.text = "Unable to determine location"
                     }

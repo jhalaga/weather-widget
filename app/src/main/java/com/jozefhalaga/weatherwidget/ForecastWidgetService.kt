@@ -8,6 +8,7 @@ import android.appwidget.AppWidgetManager
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.LocalDate
+import kotlinx.coroutines.runBlocking
 
 class ForecastWidgetService : RemoteViewsService() {
     override fun onGetViewFactory(intent: Intent): RemoteViewsFactory {
@@ -62,76 +63,97 @@ class ForecastRemoteViewsFactory(
         
         val isHourly = WeatherLocationManager.isHourlyMode(context)
         
-        if (isHourly) {
-            populateHourlyDemo()
-        } else {
-            populateDailyDemo()
+        try {
+            // Get location data
+            val location = WeatherLocationManager.getCustomLocation(context) 
+                ?: WeatherLocationManager.getCachedLocationData(context)
+            
+            if (location != null) {
+                // Try to get cached weather data first
+                var forecast = WeatherService.getCachedWeatherData(context)
+                
+                // If no cached data or cache is old, fetch fresh data
+                if (forecast == null) {
+                    runBlocking {
+                        forecast = WeatherService.fetchWeatherForecast(location.latitude, location.longitude)
+                        forecast?.let { WeatherService.cacheWeatherData(context, it) }
+                    }
+                }
+                
+                if (forecast != null) {
+                    if (isHourly) {
+                        populateHourlyForecast(forecast)
+                    } else {
+                        populateDailyForecast(forecast)
+                    }
+                } else {
+                    // No forecast data available - show loading/error state
+                    populateErrorState("Unable to load weather data")
+                }
+            } else {
+                // No location available
+                populateErrorState("Location not set")
+            }
+        } catch (e: Exception) {
+            // Error occurred
+            populateErrorState("Error loading weather data")
         }
     }
 
-    private fun populateHourlyDemo() {
+    private fun populateHourlyForecast(forecast: WeatherForecast) {
         val now = LocalDateTime.now()
-        // 48 hours of data (6 rows × 8 hours)
-        val demoTemps = listOf(
-            22, 21, 20, 19, 18, 17, 16, 17, // Row 1: Hours 0-7
-            18, 20, 23, 25, 27, 26, 24, 23, // Row 2: Hours 8-15  
-            21, 19, 18, 17, 16, 15, 14, 15, // Row 3: Hours 16-23
-            16, 18, 21, 24, 26, 28, 25, 22, // Row 4: Hours 24-31
-            20, 18, 17, 16, 15, 14, 13, 14, // Row 5: Hours 32-39
-            15, 17, 20, 23, 25, 27, 24, 21  // Row 6: Hours 40-47
-        )
-        val demoWeatherCodes = listOf(
-            0, 1, 2, 0, 1, 3, 2, 0, // Row 1
-            1, 0, 0, 1, 2, 1, 0, 1, // Row 2
-            2, 0, 1, 3, 2, 0, 1, 0, // Row 3
-            0, 1, 0, 1, 2, 0, 1, 2, // Row 4
-            1, 3, 2, 0, 1, 0, 2, 1, // Row 5
-            0, 1, 0, 1, 2, 0, 1, 0  // Row 6
-        )
+        val currentHour = now.hour
         
         // Create 6 rows, each with 8 hours
         for (row in 0 until 6) {
             val hoursInRow = mutableListOf<HourData>()
             
             for (hourInRow in 0 until 8) {
-                val hourIndex = row * 8 + hourInRow
-                val time = now.plusHours(hourIndex.toLong())
-                val temp = demoTemps[hourIndex]
-                val weatherCode = demoWeatherCodes[hourIndex]
+                val displayIndex = row * 8 + hourInRow
+                // Skip past hours and get data from the server array
+                val serverDataIndex = currentHour + displayIndex
                 
-                val dateStr = time.format(DateTimeFormatter.ofPattern("dd/MM"))
-                val timeStr = if (hourIndex == 0) "Now" else time.format(DateTimeFormatter.ofPattern("HH:mm"))
-                val tempStr = "${temp}°"
-                
-                hoursInRow.add(HourData(
-                    date = dateStr,
-                    time = timeStr,
-                    temp = tempStr,
-                    iconResource = getWeatherIcon(weatherCode)
-                ))
+                // Make sure we don't go beyond our forecast data
+                if (serverDataIndex < forecast.hourlyTemperatures.size) {
+                    val temp = forecast.hourlyTemperatures[serverDataIndex]
+                    val weatherCode = forecast.hourlyWeatherCodes[serverDataIndex]
+                    
+                    // Calculate the actual time this forecast represents
+                    val forecastTime = now.withMinute(0).withSecond(0).withNano(0).plusHours(displayIndex.toLong())
+                    
+                    val dateStr = forecastTime.format(DateTimeFormatter.ofPattern("dd/MM"))
+                    val timeStr = if (displayIndex == 0) "Now" else forecastTime.format(DateTimeFormatter.ofPattern("HH:00"))
+                    val tempStr = "${temp}°"
+                    
+                    hoursInRow.add(HourData(
+                        date = dateStr,
+                        time = timeStr,
+                        temp = tempStr,
+                        iconResource = getWeatherIcon(weatherCode)
+                    ))
+                }
             }
             
-            rowData.add(RowData(isHourly = true, hours = hoursInRow))
+            if (hoursInRow.isNotEmpty()) {
+                rowData.add(RowData(isHourly = true, hours = hoursInRow))
+            }
         }
     }
 
-    private fun populateDailyDemo() {
+    private fun populateDailyForecast(forecast: WeatherForecast) {
         val today = LocalDate.now()
-        val demoMaxTemps = listOf(25, 23, 27, 24, 22, 26, 28, 25, 23, 21, 24, 26, 27, 25, 23, 22)
-        val demoMinTemps = listOf(15, 13, 17, 14, 12, 16, 18, 15, 13, 11, 14, 16, 17, 15, 13, 12)
-        val demoWeatherCodes = listOf(0, 1, 61, 0, 2, 1, 0, 3, 51, 0, 1, 0, 2, 1, 0, 3)
         
-        // Create 2 rows, each with 8 days
+        // Create 2 rows, each with 8 days (up to 16 days but Open-Meteo gives us 7 days)
         for (row in 0 until 2) {
             val daysInRow = mutableListOf<DayData>()
             
             for (dayInRow in 0 until 8) {
                 val dayIndex = row * 8 + dayInRow
-                if (dayIndex < 16) {
+                if (dayIndex < forecast.dailyMaxTemperatures.size) {
                     val date = today.plusDays(dayIndex.toLong())
-                    val maxTemp = demoMaxTemps[dayIndex]
-                    val minTemp = demoMinTemps[dayIndex]
-                    val weatherCode = demoWeatherCodes[dayIndex]
+                    val maxTemp = forecast.dailyMaxTemperatures[dayIndex]
+                    val minTemp = forecast.dailyMinTemperatures[dayIndex]
+                    val weatherCode = forecast.dailyWeatherCodes[dayIndex]
                     
                     val dateStr = date.format(DateTimeFormatter.ofPattern("dd/MM"))
                     val dayStr = if (dayIndex == 0) "Today" else date.format(DateTimeFormatter.ofPattern("EEE"))
@@ -148,8 +170,22 @@ class ForecastRemoteViewsFactory(
                 }
             }
             
-            rowData.add(RowData(isHourly = false, days = daysInRow))
+            if (daysInRow.isNotEmpty()) {
+                rowData.add(RowData(isHourly = false, days = daysInRow))
+            }
         }
+    }
+
+    private fun populateErrorState(errorMessage: String) {
+        // Create a single row showing the error message
+        val errorRow = mutableListOf<HourData>()
+        errorRow.add(HourData(
+            date = "",
+            time = "Error",
+            temp = errorMessage,
+            iconResource = R.drawable.weather_sunny // Default icon
+        ))
+        rowData.add(RowData(isHourly = true, hours = errorRow))
     }
 
     private fun getWeatherIcon(code: Int): Int {

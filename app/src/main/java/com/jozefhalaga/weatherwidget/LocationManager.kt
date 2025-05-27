@@ -196,22 +196,76 @@ object WeatherLocationManager {
     }
 
     suspend fun getCurrentLocation(context: Context): LocationData = withContext(Dispatchers.IO) {
-        // Check if using custom location
+        // Check if using custom location first
         getCustomLocation(context)?.let { return@withContext it }
         
-        // Try to get precise GPS location
-        val preciseLocation = getPreciseGPSLocation(context)
-        if (preciseLocation != null) {
-            val city = getCityFromCoordinates(preciseLocation.latitude, preciseLocation.longitude)
-            return@withContext LocationData(
-                preciseLocation.latitude, 
-                preciseLocation.longitude, 
-                city
-            )
+        // Try to get location with improved error handling
+        try {
+            // First try to get last known location (fastest)
+            val lastKnownLocation = getLastKnownLocation(context)
+            if (lastKnownLocation != null) {
+                val city = getCityFromCoordinates(lastKnownLocation.latitude, lastKnownLocation.longitude)
+                return@withContext LocationData(
+                    lastKnownLocation.latitude, 
+                    lastKnownLocation.longitude, 
+                    city
+                )
+            }
+            
+            // If no last known location, try to get fresh GPS location
+            val preciseLocation = getPreciseGPSLocation(context)
+            if (preciseLocation != null) {
+                val city = getCityFromCoordinates(preciseLocation.latitude, preciseLocation.longitude)
+                return@withContext LocationData(
+                    preciseLocation.latitude, 
+                    preciseLocation.longitude, 
+                    city
+                )
+            }
+            
+            // If GPS fails, fallback to IP-based location
+            return@withContext getIPBasedLocation()
+            
+        } catch (e: Exception) {
+            // If everything fails, return IP-based location
+            try {
+                return@withContext getIPBasedLocation()
+            } catch (ipError: Exception) {
+                // Absolute fallback
+                return@withContext LocationData(51.5074, -0.1278, "London (Fallback)")
+            }
         }
+    }
+
+    private fun getLastKnownLocation(context: Context): Location? {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return null
+        }
+
+        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as SystemLocationManager
         
-        // Fallback to IP-based location
-        getIPBasedLocation()
+        try {
+            // Try GPS first, then network
+            val gpsLocation = if (locationManager.isProviderEnabled(SystemLocationManager.GPS_PROVIDER)) {
+                locationManager.getLastKnownLocation(SystemLocationManager.GPS_PROVIDER)
+            } else null
+            
+            val networkLocation = if (locationManager.isProviderEnabled(SystemLocationManager.NETWORK_PROVIDER)) {
+                locationManager.getLastKnownLocation(SystemLocationManager.NETWORK_PROVIDER)
+            } else null
+            
+            // Return the most recent/accurate location
+            return when {
+                gpsLocation != null && networkLocation != null -> {
+                    if (gpsLocation.time > networkLocation.time) gpsLocation else networkLocation
+                }
+                gpsLocation != null -> gpsLocation
+                networkLocation != null -> networkLocation
+                else -> null
+            }
+        } catch (e: SecurityException) {
+            return null
+        }
     }
 
     private suspend fun getPreciseGPSLocation(context: Context): Location? = withContext(Dispatchers.Main) {
@@ -221,17 +275,20 @@ object WeatherLocationManager {
 
         val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as SystemLocationManager
         
-        // Check if GPS is enabled
+        // Check if any location provider is enabled
         if (!locationManager.isProviderEnabled(SystemLocationManager.GPS_PROVIDER) && 
             !locationManager.isProviderEnabled(SystemLocationManager.NETWORK_PROVIDER)) {
             return@withContext null
         }
 
         return@withContext suspendCancellableCoroutine { continuation ->
+            var isLocationReceived = false
+            
             val locationListener = object : LocationListener {
                 override fun onLocationChanged(location: Location) {
-                    locationManager.removeUpdates(this)
-                    if (continuation.isActive) {
+                    if (!isLocationReceived && continuation.isActive) {
+                        isLocationReceived = true
+                        locationManager.removeUpdates(this)
                         continuation.resumeWith(Result.success(location))
                     }
                 }
@@ -241,35 +298,48 @@ object WeatherLocationManager {
             }
 
             try {
-                // Try GPS first for highest accuracy
+                // Start location updates on both GPS and Network for better chances
+                var hasStartedLocationRequest = false
+                
                 if (locationManager.isProviderEnabled(SystemLocationManager.GPS_PROVIDER)) {
                     locationManager.requestLocationUpdates(
                         SystemLocationManager.GPS_PROVIDER,
                         0L, 0f, locationListener
                     )
-                } else if (locationManager.isProviderEnabled(SystemLocationManager.NETWORK_PROVIDER)) {
+                    hasStartedLocationRequest = true
+                }
+                
+                if (locationManager.isProviderEnabled(SystemLocationManager.NETWORK_PROVIDER)) {
                     locationManager.requestLocationUpdates(
                         SystemLocationManager.NETWORK_PROVIDER,
                         0L, 0f, locationListener
                     )
+                    hasStartedLocationRequest = true
+                }
+                
+                if (!hasStartedLocationRequest) {
+                    continuation.resumeWith(Result.success(null))
+                    return@suspendCancellableCoroutine
                 }
 
-                // Set timeout for location request
+                // Set up cleanup on cancellation
                 continuation.invokeOnCancellation { 
                     locationManager.removeUpdates(locationListener)
                 }
 
-                // Fallback to last known location after 5 seconds
+                // Set timeout - give it more time (10 seconds instead of 5)
                 CoroutineScope(Dispatchers.Main).launch {
-                    delay(5000)
-                    if (continuation.isActive) {
-                        val lastKnown = locationManager.getLastKnownLocation(SystemLocationManager.GPS_PROVIDER)
-                            ?: locationManager.getLastKnownLocation(SystemLocationManager.NETWORK_PROVIDER)
+                    delay(10000)
+                    if (!isLocationReceived && continuation.isActive) {
                         locationManager.removeUpdates(locationListener)
-                        continuation.resumeWith(Result.success(lastKnown))
+                        continuation.resumeWith(Result.success(null))
                     }
                 }
             } catch (e: SecurityException) {
+                if (continuation.isActive) {
+                    continuation.resumeWith(Result.success(null))
+                }
+            } catch (e: Exception) {
                 if (continuation.isActive) {
                     continuation.resumeWith(Result.success(null))
                 }

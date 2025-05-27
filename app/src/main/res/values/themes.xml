@@ -23,6 +23,5 @@
         
         <!-- Navigation bar -->
         <item name="android:navigationBarColor" tools:targetApi="l">@color/neumo_background</item>
-        <item name="android:windowLightNavigationBar" tools:targetApi="o">true</item>
     </style>
 </resources>

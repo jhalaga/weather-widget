@@ -13,40 +13,9 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- Header with Help Icon -->
-        <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="32dp">
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Weather Widget"
-                android:textSize="32sp"
-                android:textStyle="normal"
-                android:fontFamily="sans-serif-light"
-                android:gravity="center"
-                android:textColor="@color/neumo_text_primary" />
 
-            <TextView
-                android:id="@+id/helpIcon"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"
-                android:background="@drawable/neumo_button"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:text="?"
-                android:textColor="@color/neumo_text_primary"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-        </RelativeLayout>
-
-        <!-- Current Location Card with Refresh -->
+        <!-- Current Location Card -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -55,36 +24,14 @@
             android:orientation="vertical"
             android:padding="24dp">
 
-            <LinearLayout
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="12dp">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Current Location"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/neumo_text_primary" />
-
-                <TextView
-                    android:id="@+id/refreshLocationButton"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:background="@drawable/neumo_button"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center"
-                    android:text="↻"
-                    android:textColor="@color/neumo_text_primary"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-            </LinearLayout>
+                android:text="Current Location"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/neumo_text_primary"
+                android:layout_marginBottom="12dp" />
 
             <TextView
                 android:id="@+id/currentLocationText"
@@ -154,16 +101,9 @@
             android:padding="24dp"
             android:visibility="gone">
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Search Location"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/neumo_text_primary"
-                android:layout_marginBottom="20dp" />
 
-            <!-- Search Input -->
+
+            <!-- Search Input with inline button -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -186,23 +126,21 @@
                     android:inputType="textCapWords"
                     android:imeOptions="actionSearch" />
 
-            </LinearLayout>
+                <!-- Search Button as icon -->
+                <TextView
+                    android:id="@+id/searchCityButton"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_marginStart="12dp"
+                    android:background="@drawable/neumo_button"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:text="🔍"
+                    android:textColor="@color/neumo_text_primary"
+                    android:textSize="16sp" />
 
-            <!-- Search Button -->
-            <TextView
-                android:id="@+id/searchCityButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="20dp"
-                android:background="@drawable/neumo_button"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:padding="16dp"
-                android:text="Search Location"
-                android:textColor="@color/neumo_text_primary"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/selectedLocationText"
@@ -235,21 +173,7 @@
 
         </LinearLayout>
 
-        <!-- Save Settings Button -->
-        <TextView
-            android:id="@+id/saveSettingsButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
-            android:background="@drawable/neumo_accent_button"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:padding="18dp"
-            android:text="Save Settings"
-            android:textColor="@color/white"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+
 
         <!-- Status -->
         <TextView
@@ -262,6 +186,28 @@
             android:layout_marginTop="16dp"
             android:textColor="@color/neumo_accent"
             android:visibility="gone" />
+
+        <!-- Help button at bottom left -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp">
+
+            <TextView
+                android:id="@+id/helpIcon"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignParentStart="true"
+                android:background="@drawable/neumo_button"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:text="?"
+                android:textColor="@color/neumo_text_primary"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+        </RelativeLayout>
 
     </LinearLayout>
 
