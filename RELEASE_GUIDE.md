@@ -10,25 +10,125 @@
 
 ---
 
-## 🎯 Method 1: Automated GitHub Release (Recommended)
+## Automated Release System
 
-**Creates a release with downloadable APK automatically**
+The project now has an automated release system that builds and publishes APK files whenever you create a GitHub release.
 
-### Step 1: Create Release on GitHub
-1. Go to your repository: `https://github.com/jhalaga/weather-widget`
-2. Click **"Releases"** → **"Create a new release"**
-3. Fill in:
-   - **Tag**: `v3.0` (or next version)
-   - **Title**: `Weather Widget v3.0 - Real Weather Integration ✨`
-   - **Description**: Copy from README changelog section
-4. Click **"Publish release"**
+### How It Works
 
-### Step 2: Wait for APK
-- GitHub Actions will automatically build the APK (takes ~3-5 minutes)
-- APK will be attached as `weather-widget-v3.0.apk`
-- Users can download directly from the release page
+1. **GitHub Actions Workflow**: Located in `.github/workflows/release.yml`
+2. **Triggers**: 
+   - When you create a new GitHub release
+   - Manual workflow dispatch (for testing)
+3. **Output**: Automatically builds and attaches APK files to the release
 
-**✅ Done! Your users can now download the APK from the release page.**
+## Creating a New Release
+
+### Method 1: GitHub Web Interface (Recommended)
+
+1. **Prepare the version**:
+   - Update version in `app/build.gradle`:
+     ```gradle
+     versionCode = X  // Increment by 1
+     versionName = "X.X"  // New version number
+     ```
+   - Commit and push changes:
+     ```bash
+     git add app/build.gradle
+     git commit -m "Bump version to X.X"
+     git push origin main
+     ```
+
+2. **Create the release**:
+   - Go to your GitHub repository
+   - Click "Releases" → "Create a new release"
+   - Click "Choose a tag" → Type new tag (e.g., `v3.2`)
+   - Set release title (e.g., "Weather Widget v3.2")
+   - Add release notes describing changes
+   - Click "Publish release"
+
+3. **Automatic build**:
+   - GitHub Actions will automatically trigger
+   - APK will be built and attached to the release
+   - Users can download from the Releases page
+
+### Method 2: Command Line
+
+1. **Prepare and tag**:
+   ```bash
+   # Update version in app/build.gradle first
+   git add app/build.gradle
+   git commit -m "Bump version to X.X"
+   git tag vX.X
+   git push origin main
+   git push origin vX.X
+   ```
+
+2. **Create release via GitHub CLI** (if installed):
+   ```bash
+   gh release create vX.X --title "Weather Widget vX.X" --notes "Release notes here"
+   ```
+
+## Testing the Workflow
+
+You can test the build process without creating a release:
+
+1. Go to your repository on GitHub
+2. Click "Actions" tab
+3. Select "Build and Release APK" workflow
+4. Click "Run workflow"
+5. Enter a version tag (e.g., `v3.1-test`)
+6. Click "Run workflow"
+
+This will build the APK and upload it as an artifact (downloadable from the workflow run page).
+
+## Troubleshooting
+
+### Build Fails
+- Check the Actions tab for error logs
+- Common issues:
+  - Java version conflicts (workflow uses Java 17)
+  - Gradle daemon issues (workflow clears cache)
+  - Missing dependencies
+
+### APK Not Attached
+- Ensure the release was created properly
+- Check if the build completed successfully in Actions
+- Verify the APK file was generated in the build logs
+
+### Manual Local Build
+If you need to build locally for testing:
+```bash
+./gradlew assembleRelease
+```
+The APK will be in `app/build/outputs/apk/release/`
+
+## Release Checklist
+
+Before creating a release:
+
+- [ ] Test the app thoroughly
+- [ ] Update version code and name in `app/build.gradle`
+- [ ] Update README.md if needed
+- [ ] Write release notes describing changes
+- [ ] Commit and push all changes
+- [ ] Create and push the version tag
+- [ ] Create the GitHub release
+- [ ] Verify the APK builds successfully
+- [ ] Test download and installation of the APK
+
+## Version Numbering
+
+Follow semantic versioning:
+- **Major.Minor.Patch** (e.g., 3.1.0)
+- **versionCode**: Integer that increments with each release
+- **versionName**: Human-readable version string
+
+Example:
+```gradle
+versionCode = 5      // Incremented from previous
+versionName = "3.1"  // Semantic version
+```
 
 ---
 
