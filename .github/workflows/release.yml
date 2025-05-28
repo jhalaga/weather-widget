@@ -18,10 +18,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Set up JDK 21
+    - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
-        java-version: '21'
+        java-version: '17'
         distribution: 'temurin'
         
     - name: Cache Gradle dependencies
@@ -38,17 +38,24 @@ jobs:
       run: chmod +x gradlew
       
     - name: Build Release APK
-      run: ./gradlew assembleRelease
-      
-    - name: Sign APK
+      run: ./gradlew assembleRelease --no-daemon --stacktrace
+        
+    - name: List APK files (debug)
       run: |
-        # For now, we'll use debug signing. In production, you'd want to use a release keystore
-        echo "Using debug keystore for signing..."
+        echo "Checking APK output directory..."
+        ls -la app/build/outputs/apk/release/ || echo "Release directory not found"
+        find . -name "*.apk" -type f || echo "No APK files found"
         
     - name: Rename APK
       run: |
-        mv app/build/outputs/apk/release/app-release-unsigned.apk weather-widget-v${{ github.event.release.tag_name || inputs.version }}.apk || \
-        mv app/build/outputs/apk/release/app-release.apk weather-widget-v${{ github.event.release.tag_name || inputs.version }}.apk
+        if [ -f "app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
+          mv app/build/outputs/apk/release/app-release-unsigned.apk weather-widget-${{ github.event.release.tag_name || inputs.version }}.apk
+        elif [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
+          mv app/build/outputs/apk/release/app-release.apk weather-widget-${{ github.event.release.tag_name || inputs.version }}.apk
+        else
+          echo "No APK file found to rename"
+          exit 1
+        fi
         
     - name: Upload APK to Release
       if: github.event_name == 'release'
@@ -57,8 +64,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./weather-widget-v${{ github.event.release.tag_name }}.apk
-        asset_name: weather-widget-v${{ github.event.release.tag_name }}.apk
+        asset_path: ./weather-widget-${{ github.event.release.tag_name }}.apk
+        asset_name: weather-widget-${{ github.event.release.tag_name }}.apk
         asset_content_type: application/vnd.android.package-archive
         
     - name: Upload APK as Artifact
@@ -66,4 +73,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: weather-widget-apk
-        path: ./weather-widget-v${{ inputs.version }}.apk 
+        path: ./weather-widget-${{ inputs.version }}.apk 
