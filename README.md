@@ -36,7 +36,7 @@ A modern Android weather widget that displays real-time weather forecasts direct
 
 1. **Download APK**
    - Go to [Releases](../../releases) page
-   - Download the latest `weather-widget-v3.0.apk`
+   - Download the latest `weather-widget-vX.X.apk`
    - Install on your Android device
 
 2. **Add Widget**
