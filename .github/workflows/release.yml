@@ -14,6 +14,12 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     
+    env:
+      # Clear any potentially conflicting Java environment variables
+      JAVA_HOME_11_X64: ""
+      JAVA_HOME_17_X64: ""
+      JAVA_HOME_21_X64: ""
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -22,16 +28,35 @@ jobs:
       uses: actions/setup-java@v4
       with:
         java-version: '17'
-        distribution: 'adopt'
+        distribution: 'temurin'
+        
+    - name: Verify Java setup
+      run: |
+        echo "JAVA_HOME: $JAVA_HOME"
+        echo "Java version:"
+        java -version
+        echo "Javac version:"
+        javac -version
         
     - name: Setup Android SDK
-      uses: android-actions/setup-android@v2
+      uses: android-actions/setup-android@v3
+      with:
+        api-level: 34
         
     - name: Make gradlew executable
       run: chmod +x gradlew
+      
+    - name: Clear Gradle configuration
+      run: |
+        rm -rf ~/.gradle/daemon
+        ./gradlew --stop || true
         
     - name: Build Release APK
-      run: ./gradlew assembleRelease --no-daemon --warning-mode all
+      run: |
+        export JAVA_HOME="$JAVA_HOME"
+        ./gradlew assembleRelease --no-daemon --warning-mode all --info
+      env:
+        GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8"
         
     - name: List APK files (debug)
       run: |
