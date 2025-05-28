@@ -1,6 +1,8 @@
 @echo off
 echo Building Weather Widget Release APK...
 echo.
+echo Requirements: Java 17+ and Android SDK
+echo.
 
 REM Clean and build release APK
 echo [1/3] Cleaning previous builds...
