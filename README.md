@@ -34,9 +34,9 @@ A modern Android weather widget that displays real-time weather forecasts direct
 
 ### 📦 Download & Install
 
-1. **Download APK** (when available)
+1. **Download APK**
    - Go to [Releases](../../releases) page
-   - Download the latest `weather-widget.apk`
+   - Download the latest `weather-widget-v3.0.apk`
    - Install on your Android device
 
 2. **Add Widget**
@@ -44,12 +44,14 @@ A modern Android weather widget that displays real-time weather forecasts direct
    - Find "Weather Widget" and drag to home screen
    - Configure location in the main app
 
+**For Developers:** See [RELEASE_GUIDE.md](RELEASE_GUIDE.md) for creating new releases.
+
 ### 🔧 Build from Source
 
 **Prerequisites:**
 - Android Studio Arctic Fox or newer
 - Android SDK 24+ 
-- Java 11+ (recommended: Java 17)
+- Java 17+ (Java 21 also supported)
 
 **Build Steps:**
 ```bash

@@ -12,7 +12,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     
     steps:
     - name: Checkout code
@@ -22,16 +22,16 @@ jobs:
       uses: actions/setup-java@v4
       with:
         java-version: '17'
-        distribution: 'temurin'
+        distribution: 'adopt'
         
     - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
+      uses: android-actions/setup-android@v2
         
     - name: Make gradlew executable
       run: chmod +x gradlew
         
     - name: Build Release APK
-      run: ./gradlew assembleRelease --no-daemon
+      run: ./gradlew assembleRelease --no-daemon --warning-mode all
         
     - name: List APK files (debug)
       run: |
@@ -62,8 +62,7 @@ jobs:
         asset_content_type: application/vnd.android.package-archive
         
     - name: Upload APK as Artifact
-      if: github.event_name == 'workflow_dispatch'
       uses: actions/upload-artifact@v4
       with:
-        name: weather-widget-apk
-        path: ./weather-widget-${{ inputs.version }}.apk 
+        name: weather-widget-${{ github.event.release.tag_name || inputs.version }}
+        path: ./weather-widget-${{ github.event.release.tag_name || inputs.version }}.apk 
