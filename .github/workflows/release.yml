@@ -24,21 +24,14 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
         
-    - name: Cache Gradle dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
-          
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+        
     - name: Make gradlew executable
       run: chmod +x gradlew
-      
+        
     - name: Build Release APK
-      run: ./gradlew assembleRelease --no-daemon --stacktrace
+      run: ./gradlew assembleRelease --no-daemon
         
     - name: List APK files (debug)
       run: |
