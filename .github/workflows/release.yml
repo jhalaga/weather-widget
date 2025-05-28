@@ -70,9 +70,7 @@ jobs:
         
     - name: Rename APK
       run: |
-        if [ -f "app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
-          mv app/build/outputs/apk/release/app-release-unsigned.apk weather-widget-${{ github.event.release.tag_name || inputs.version }}.apk
-        elif [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
+        if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
           mv app/build/outputs/apk/release/app-release.apk weather-widget-${{ github.event.release.tag_name || inputs.version }}.apk
         else
           echo "No APK file found to rename"

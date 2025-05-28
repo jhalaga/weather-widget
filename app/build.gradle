@@ -17,6 +17,20 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        debug {
+            // Default debug signing - automatically configured by Android
+        }
+        release {
+            // For now, use debug keystore for release builds
+            // This allows APKs to be installed but they're still "debug" signed
+            storeFile file("${System.getProperty('user.home')}/.android/debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled = true
@@ -26,7 +40,8 @@ android {
             // Enable debugging info for crash reports while keeping release optimizations
             debuggable = false
             
-
+            // Use the release signing config
+            signingConfig signingConfigs.release
             
             // Optional: Add version suffix for easier identification
             versionNameSuffix = ""
@@ -35,6 +50,7 @@ android {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
             debuggable = true
+            signingConfig signingConfigs.debug
         }
     }
     compileOptions {
