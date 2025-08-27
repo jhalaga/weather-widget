@@ -34,8 +34,8 @@ object WeatherService {
             
             val response = URL(url).openConnection().run {
                 setRequestProperty("User-Agent", "WeatherWidget/1.0")
-                connectTimeout = 10000
-                readTimeout = 10000
+                connectTimeout = 30000
+                readTimeout = 30000
                 inputStream.bufferedReader().readText()
             }
             
@@ -140,5 +140,43 @@ object WeatherService {
         } catch (e: Exception) {
             return null
         }
+    }
+
+    // Cache with location metadata
+    fun cacheWeatherDataForLocation(context: Context, latitude: Double, longitude: Double, forecast: WeatherForecast) {
+        val prefs = context.getSharedPreferences("weather_forecast_cache", Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            putString("hourly_temps", forecast.hourlyTemperatures.joinToString(","))
+            putString("hourly_codes", forecast.hourlyWeatherCodes.joinToString(","))
+            putString("daily_max_temps", forecast.dailyMaxTemperatures.joinToString(","))
+            putString("daily_min_temps", forecast.dailyMinTemperatures.joinToString(","))
+            putString("daily_codes", forecast.dailyWeatherCodes.joinToString(","))
+            putFloat("cache_lat", latitude.toFloat())
+            putFloat("cache_lon", longitude.toFloat())
+            putLong("cache_timestamp", System.currentTimeMillis())
+            apply()
+        }
+    }
+
+    fun getCachedWeatherDataForLocation(context: Context, latitude: Double, longitude: Double): WeatherForecast? {
+        val prefs = context.getSharedPreferences("weather_forecast_cache", Context.MODE_PRIVATE)
+        val ts = prefs.getLong("cache_timestamp", 0)
+        if (System.currentTimeMillis() - ts > 2 * 60 * 60 * 1000) return null
+        val lat = prefs.getFloat("cache_lat", Float.MIN_VALUE)
+        val lon = prefs.getFloat("cache_lon", Float.MIN_VALUE)
+        if (lat == Float.MIN_VALUE || lon == Float.MIN_VALUE) return null
+        val isSame = kotlin.math.abs(lat.toDouble() - latitude) < 1e-4 && kotlin.math.abs(lon.toDouble() - longitude) < 1e-4
+        if (!isSame) return null
+        return getCachedWeatherData(context)
+    }
+
+    fun clearCache(context: Context) {
+        val prefs = context.getSharedPreferences("weather_forecast_cache", Context.MODE_PRIVATE)
+        prefs.edit().clear().apply()
+    }
+
+    fun getCacheTimestampMillis(context: Context): Long {
+        val prefs = context.getSharedPreferences("weather_forecast_cache", Context.MODE_PRIVATE)
+        return prefs.getLong("cache_timestamp", 0)
     }
 } 

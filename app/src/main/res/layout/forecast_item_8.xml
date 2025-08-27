@@ -8,6 +8,7 @@
 
     <!-- First hour -->
     <LinearLayout
+        android:id="@+id/hour1_container"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
@@ -47,6 +48,7 @@
 
     <!-- Second hour -->
     <LinearLayout
+        android:id="@+id/hour2_container"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
@@ -86,6 +88,7 @@
 
     <!-- Third hour -->
     <LinearLayout
+        android:id="@+id/hour3_container"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
@@ -125,6 +128,7 @@
 
     <!-- Fourth hour -->
     <LinearLayout
+        android:id="@+id/hour4_container"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
@@ -164,6 +168,7 @@
 
     <!-- Fifth hour -->
     <LinearLayout
+        android:id="@+id/hour5_container"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
@@ -203,6 +208,7 @@
 
     <!-- Sixth hour -->
     <LinearLayout
+        android:id="@+id/hour6_container"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
@@ -242,6 +248,7 @@
 
     <!-- Seventh hour -->
     <LinearLayout
+        android:id="@+id/hour7_container"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
@@ -281,6 +288,7 @@
 
     <!-- Eighth hour -->
     <LinearLayout
+        android:id="@+id/hour8_container"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"

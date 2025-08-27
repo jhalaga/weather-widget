@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.WeatherWidget" parent="Theme.Material3.DayNight">
+    <style name="Theme.WeatherWidget" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Neumorphic colors -->
         <item name="colorPrimary">@color/neumo_accent</item>
         <item name="colorPrimaryVariant">@color/neumo_accent</item>

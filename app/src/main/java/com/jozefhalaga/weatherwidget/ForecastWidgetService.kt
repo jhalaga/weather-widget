@@ -3,6 +3,7 @@ package com.jozefhalaga.weatherwidget
 import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
+import android.view.View
 import android.widget.RemoteViewsService
 import android.appwidget.AppWidgetManager
 import java.time.LocalDateTime
@@ -26,6 +27,8 @@ class ForecastRemoteViewsFactory(
         AppWidgetManager.INVALID_APPWIDGET_ID
     )
     private var rowData = mutableListOf<RowData>()
+    private val numColumns: Int = intent.getIntExtra("COLUMNS", 8).let { c -> if (c in 6..8) c else 8 }
+    private val rowLayoutResId: Int = when (numColumns) { 6 -> R.layout.forecast_item_6; 7 -> R.layout.forecast_item_7; else -> R.layout.forecast_item_8 }
 
     data class HourData(
         val date: String,
@@ -39,7 +42,8 @@ class ForecastRemoteViewsFactory(
         val day: String,
         val temp: String,
         val minTemp: String,
-        val iconResource: Int
+        val iconResource: Int,
+        val isWeekend: Boolean
     )
 
     data class RowData(
@@ -69,14 +73,14 @@ class ForecastRemoteViewsFactory(
                 ?: WeatherLocationManager.getCachedLocationData(context)
             
             if (location != null) {
-                // Try to get cached weather data first
-                var forecast = WeatherService.getCachedWeatherData(context)
+                // Try to get cached weather data for this location first
+                var forecast = WeatherService.getCachedWeatherDataForLocation(context, location.latitude, location.longitude)
                 
                 // If no cached data or cache is old, fetch fresh data
                 if (forecast == null) {
                     runBlocking {
                         forecast = WeatherService.fetchWeatherForecast(location.latitude, location.longitude)
-                        forecast?.let { WeatherService.cacheWeatherData(context, it) }
+                        forecast?.let { WeatherService.cacheWeatherDataForLocation(context, location.latitude, location.longitude, it) }
                     }
                 }
                 
@@ -103,13 +107,14 @@ class ForecastRemoteViewsFactory(
     private fun populateHourlyForecast(forecast: WeatherForecast) {
         val now = LocalDateTime.now()
         val currentHour = now.hour
+        val itemsPerRow = numColumns
+        val rows = 48 / itemsPerRow
         
-        // Create 6 rows, each with 8 hours
-        for (row in 0 until 6) {
+        for (row in 0 until rows) {
             val hoursInRow = mutableListOf<HourData>()
             
-            for (hourInRow in 0 until 8) {
-                val displayIndex = row * 8 + hourInRow
+            for (hourInRow in 0 until itemsPerRow) {
+                val displayIndex = row * itemsPerRow + hourInRow
                 // Skip past hours and get data from the server array
                 val serverDataIndex = currentHour + displayIndex
                 
@@ -142,13 +147,14 @@ class ForecastRemoteViewsFactory(
 
     private fun populateDailyForecast(forecast: WeatherForecast) {
         val today = LocalDate.now()
+        val itemsPerRow = numColumns
+        val rows = 16 / itemsPerRow
         
-        // Create 2 rows, each with 8 days (up to 16 days but Open-Meteo gives us 7 days)
-        for (row in 0 until 2) {
+        for (row in 0 until rows) {
             val daysInRow = mutableListOf<DayData>()
             
-            for (dayInRow in 0 until 8) {
-                val dayIndex = row * 8 + dayInRow
+            for (dayInRow in 0 until itemsPerRow) {
+                val dayIndex = row * itemsPerRow + dayInRow
                 if (dayIndex < forecast.dailyMaxTemperatures.size) {
                     val date = today.plusDays(dayIndex.toLong())
                     val maxTemp = forecast.dailyMaxTemperatures[dayIndex]
@@ -159,13 +165,15 @@ class ForecastRemoteViewsFactory(
                     val dayStr = if (dayIndex == 0) "Today" else date.format(DateTimeFormatter.ofPattern("EEE"))
                     val tempStr = "${maxTemp}°"
                     val minTempStr = "${minTemp}°"
+                    val isWeekend = date.dayOfWeek.value == 6 || date.dayOfWeek.value == 7
                     
                     daysInRow.add(DayData(
                         date = dateStr,
                         day = dayStr,
                         temp = tempStr,
                         minTemp = minTempStr,
-                        iconResource = getWeatherIcon(weatherCode)
+                        iconResource = getWeatherIcon(weatherCode),
+                        isWeekend = isWeekend
                     ))
                 }
             }
@@ -213,11 +221,11 @@ class ForecastRemoteViewsFactory(
 
     override fun getViewAt(position: Int): RemoteViews {
         if (position >= rowData.size) {
-            return RemoteViews(context.packageName, R.layout.forecast_item)
+            return RemoteViews(context.packageName, rowLayoutResId)
         }
         
         val row = rowData[position]
-        val views = RemoteViews(context.packageName, R.layout.forecast_item)
+        val views = RemoteViews(context.packageName, rowLayoutResId)
         
         if (row.isHourly && row.hours != null) {
             populateHourlyRow(views, row.hours)
@@ -230,66 +238,103 @@ class ForecastRemoteViewsFactory(
     
     private fun populateHourlyRow(views: RemoteViews, hours: List<HourData>) {
         val hourIds = listOf(
-            listOf(R.id.hour1_date, R.id.hour1_time, R.id.hour1_icon, R.id.hour1_temp),
-            listOf(R.id.hour2_date, R.id.hour2_time, R.id.hour2_icon, R.id.hour2_temp),
-            listOf(R.id.hour3_date, R.id.hour3_time, R.id.hour3_icon, R.id.hour3_temp),
-            listOf(R.id.hour4_date, R.id.hour4_time, R.id.hour4_icon, R.id.hour4_temp),
-            listOf(R.id.hour5_date, R.id.hour5_time, R.id.hour5_icon, R.id.hour5_temp),
-            listOf(R.id.hour6_date, R.id.hour6_time, R.id.hour6_icon, R.id.hour6_temp),
-            listOf(R.id.hour7_date, R.id.hour7_time, R.id.hour7_icon, R.id.hour7_temp),
-            listOf(R.id.hour8_date, R.id.hour8_time, R.id.hour8_icon, R.id.hour8_temp)
-        )
+            listOf(R.id.hour1_date, R.id.hour1_time, R.id.hour1_icon, R.id.hour1_temp, R.id.hour1_container),
+            listOf(R.id.hour2_date, R.id.hour2_time, R.id.hour2_icon, R.id.hour2_temp, R.id.hour2_container),
+            listOf(R.id.hour3_date, R.id.hour3_time, R.id.hour3_icon, R.id.hour3_temp, R.id.hour3_container),
+            listOf(R.id.hour4_date, R.id.hour4_time, R.id.hour4_icon, R.id.hour4_temp, R.id.hour4_container),
+            listOf(R.id.hour5_date, R.id.hour5_time, R.id.hour5_icon, R.id.hour5_temp, R.id.hour5_container),
+            listOf(R.id.hour6_date, R.id.hour6_time, R.id.hour6_icon, R.id.hour6_temp, R.id.hour6_container),
+            listOf(R.id.hour7_date, R.id.hour7_time, R.id.hour7_icon, R.id.hour7_temp, R.id.hour7_container),
+            listOf(R.id.hour8_date, R.id.hour8_time, R.id.hour8_icon, R.id.hour8_temp, R.id.hour8_container)
+        ).take(numColumns)
         
+        val scale = WeatherLocationManager.getWidgetFontScale(context)
+        val dateSize = (8 * scale).toFloat()
+        val timeSize = (10 * scale).toFloat()
+        val tempSize = (11 * scale).toFloat()
+
         for (i in hourIds.indices) {
             if (i < hours.size) {
                 val hour = hours[i]
                 val ids = hourIds[i]
-                val (dateId, timeId, iconId, tempId) = ids
+                val dateId = ids[0]
+                val timeId = ids[1]
+                val iconId = ids[2]
+                val tempId = ids[3]
+                val containerId = ids[4]
                 
                 views.setTextViewText(dateId, hour.date)
+                views.setTextViewTextSize(dateId, android.util.TypedValue.COMPLEX_UNIT_SP, dateSize)
                 views.setTextViewText(timeId, hour.time)
+                views.setTextViewTextSize(timeId, android.util.TypedValue.COMPLEX_UNIT_SP, timeSize)
                 views.setImageViewResource(iconId, hour.iconResource)
                 views.setTextViewText(tempId, hour.temp)
+                views.setTextViewTextSize(tempId, android.util.TypedValue.COMPLEX_UNIT_SP, tempSize)
+                views.setViewVisibility(containerId, View.VISIBLE)
             } else {
-                // Hide unused hour slots
                 val ids = hourIds[i]
-                val (dateId, timeId, iconId, tempId) = ids
+                val dateId = ids[0]
+                val timeId = ids[1]
+                val tempId = ids[3]
+                val containerId = ids[4]
                 views.setTextViewText(dateId, "")
                 views.setTextViewText(timeId, "")
                 views.setTextViewText(tempId, "")
+                views.setViewVisibility(containerId, View.GONE)
             }
         }
     }
     
     private fun populateDailyRow(views: RemoteViews, days: List<DayData>) {
         val dayIds = listOf(
-            listOf(R.id.hour1_date, R.id.hour1_time, R.id.hour1_icon, R.id.hour1_temp),
-            listOf(R.id.hour2_date, R.id.hour2_time, R.id.hour2_icon, R.id.hour2_temp),
-            listOf(R.id.hour3_date, R.id.hour3_time, R.id.hour3_icon, R.id.hour3_temp),
-            listOf(R.id.hour4_date, R.id.hour4_time, R.id.hour4_icon, R.id.hour4_temp),
-            listOf(R.id.hour5_date, R.id.hour5_time, R.id.hour5_icon, R.id.hour5_temp),
-            listOf(R.id.hour6_date, R.id.hour6_time, R.id.hour6_icon, R.id.hour6_temp),
-            listOf(R.id.hour7_date, R.id.hour7_time, R.id.hour7_icon, R.id.hour7_temp),
-            listOf(R.id.hour8_date, R.id.hour8_time, R.id.hour8_icon, R.id.hour8_temp)
-        )
+            listOf(R.id.hour1_date, R.id.hour1_time, R.id.hour1_icon, R.id.hour1_temp, R.id.hour1_container),
+            listOf(R.id.hour2_date, R.id.hour2_time, R.id.hour2_icon, R.id.hour2_temp, R.id.hour2_container),
+            listOf(R.id.hour3_date, R.id.hour3_time, R.id.hour3_icon, R.id.hour3_temp, R.id.hour3_container),
+            listOf(R.id.hour4_date, R.id.hour4_time, R.id.hour4_icon, R.id.hour4_temp, R.id.hour4_container),
+            listOf(R.id.hour5_date, R.id.hour5_time, R.id.hour5_icon, R.id.hour5_temp, R.id.hour5_container),
+            listOf(R.id.hour6_date, R.id.hour6_time, R.id.hour6_icon, R.id.hour6_temp, R.id.hour6_container),
+            listOf(R.id.hour7_date, R.id.hour7_time, R.id.hour7_icon, R.id.hour7_temp, R.id.hour7_container),
+            listOf(R.id.hour8_date, R.id.hour8_time, R.id.hour8_icon, R.id.hour8_temp, R.id.hour8_container)
+        ).take(numColumns)
+        val scale = WeatherLocationManager.getWidgetFontScale(context)
+        val dateSize = (8 * scale).toFloat()
+        val daySize = (10 * scale).toFloat()
+        val tempSize = (11 * scale).toFloat()
         
         for (i in dayIds.indices) {
             if (i < days.size) {
                 val day = days[i]
                 val ids = dayIds[i]
-                val (dateId, timeId, iconId, tempId) = ids
+                val dateId = ids[0]
+                val timeId = ids[1]
+                val iconId = ids[2]
+                val tempId = ids[3]
+                val containerId = ids[4]
                 
                 views.setTextViewText(dateId, day.date)
+                views.setTextViewTextSize(dateId, android.util.TypedValue.COMPLEX_UNIT_SP, dateSize)
                 views.setTextViewText(timeId, day.day)
+                views.setTextViewTextSize(timeId, android.util.TypedValue.COMPLEX_UNIT_SP, daySize)
                 views.setImageViewResource(iconId, day.iconResource)
                 views.setTextViewText(tempId, "${day.temp}/${day.minTemp}")
+                views.setTextViewTextSize(tempId, android.util.TypedValue.COMPLEX_UNIT_SP, tempSize)
+                if (day.isWeekend) {
+                    views.setInt(containerId, "setBackgroundResource", R.drawable.weekend_bg)
+                } else {
+                    // Remove background
+                    views.setInt(containerId, "setBackgroundResource", 0)
+                }
+                views.setViewVisibility(containerId, View.VISIBLE)
             } else {
-                // Hide unused day slots
                 val ids = dayIds[i]
-                val (dateId, timeId, iconId, tempId) = ids
+                val dateId = ids[0]
+                val timeId = ids[1]
+                val tempId = ids[3]
+                val containerId = ids[4]
                 views.setTextViewText(dateId, "")
                 views.setTextViewText(timeId, "")
                 views.setTextViewText(tempId, "")
+                views.setViewVisibility(containerId, View.GONE)
             }
         }
     }
@@ -297,7 +342,7 @@ class ForecastRemoteViewsFactory(
     override fun getCount(): Int = rowData.size
 
     override fun getLoadingView(): RemoteViews {
-        val views = RemoteViews(context.packageName, R.layout.forecast_item)
+        val views = RemoteViews(context.packageName, rowLayoutResId)
         views.setTextViewText(R.id.hour1_temp, "...")
         return views
     }

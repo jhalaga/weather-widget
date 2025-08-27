@@ -38,4 +38,6 @@
     <color name="neumo_success">#34A853</color>
     <color name="neumo_warning">#FBBC04</color>
     <color name="neumo_error">#EA4335</color>
+    
+    <color name="weekend_tint">#25FFFFFF</color>
 </resources>

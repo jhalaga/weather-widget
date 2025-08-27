@@ -16,6 +16,8 @@ A modern Android weather widget that displays real-time weather forecasts direct
 - 🎨 **12 Weather Icons**: Visual indicators for all weather conditions
 - 📱 **Home Screen Widget**: Compact design that fits perfectly on your launcher
 - 🔄 **Auto-Refresh**: Smart caching with automatic data updates
+- 🛡️ **Resilient Background Updates**: WorkManager-driven refresh every 30 min with retry
+- 🕒 **Freshness Indicator**: "Updated HH:mm" label and stale-data warning
 - 🌐 **Offline Fallback**: IP-based location when GPS unavailable
 
 ## 📱 Screenshots
@@ -112,6 +114,9 @@ cd weather-widget
 | `HelloWidgetProvider.kt` | Main widget provider and update manager |
 | `LocationManager.kt` | GPS/network location and city search |
 | `MainActivity.kt` | Configuration UI with neumorphic design |
+| `WidgetRefreshWorker.kt` | Periodic and on-demand refresh via WorkManager |
+| `WeatherLocationResolver.kt` | Background-safe location resolution (custom → fused last → IP) |
+| `GeoIpService.kt` | IP-based location fallback |
 
 ### 🌐 APIs & Services
 - **[Open-Meteo](https://open-meteo.com/)**: Weather forecast data (no API key needed)
@@ -164,9 +169,13 @@ app/src/main/res/
 ### 🧩 Widget Architecture
 - **Real Data**: Live weather from Open-Meteo API (no more demo data!)
 - **Smart Caching**: 2-hour cache to minimize API calls
+- **Periodic Refresh (Doze-aware)**: WorkManager every 30 minutes with network constraint and backoff
+- **Immediate Refresh**: Enqueued on toggle and after saving a new location
+- **Background Location Policy**: Custom location if set; else fused last known location; fallback to IP (no fresh GPS in background)
+- **Freshness UI**: "Updated HH:mm" label; shows stale state if cache > 2h
 - **Time Alignment**: Hourly forecasts show exact ":00" times from server
-- **Fallback Hierarchy**: GPS → Network → IP-based → Error state
 - **Dual Modes**: Toggle between hourly/daily forecasts
+- **Hardened Clicks**: Immutable PendingIntents on Android 12+
 
 ## 🤝 Contributing
 
@@ -198,6 +207,14 @@ This project is **open source** and available under the MIT License.
 - **Weather icons** - Custom designed for clarity and recognition
 
 ## 📈 Changelog
+
+### v3.2 - Resilient Background Refresh ✅
+- 🔄 Switched to WorkManager for periodic widget refresh (every 30 min)
+- 🧭 Background-safe location: custom → fused last known → IP; no fresh GPS in background
+- ⚡ Immediate refresh on mode toggle and after saving a new location
+- 🕒 Added "Updated HH:mm" label and stale-data indication (>2h)
+- 🧰 Set `updatePeriodMillis` to `0` to avoid inexact system updates
+- 🛠️ Minor stability improvements and hardened PendingIntents
 
 ### v3.0 - Real Weather Integration ✨
 - 🌍 **Real weather data** from Open-Meteo API (no more demo data!)
