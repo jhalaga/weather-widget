@@ -170,13 +170,13 @@ object WeatherService {
         return getCachedWeatherData(context)
     }
 
-    fun clearCache(context: Context) {
-        val prefs = context.getSharedPreferences("weather_forecast_cache", Context.MODE_PRIVATE)
-        prefs.edit().clear().apply()
-    }
-
     fun getCacheTimestampMillis(context: Context): Long {
         val prefs = context.getSharedPreferences("weather_forecast_cache", Context.MODE_PRIVATE)
         return prefs.getLong("cache_timestamp", 0)
+    }
+
+    fun clearCache(context: Context) {
+        val prefs = context.getSharedPreferences("weather_forecast_cache", Context.MODE_PRIVATE)
+        prefs.edit().clear().apply()
     }
 } 

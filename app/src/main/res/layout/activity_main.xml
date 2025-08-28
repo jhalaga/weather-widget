@@ -56,6 +56,97 @@
 
         </LinearLayout>
 
+        <!-- Reliability card -->
+        <LinearLayout
+            android:id="@+id/reliabilityCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:background="@drawable/neumo_raised"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Keep updates reliable"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/neumo_text_primary"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="On some devices (e.g., Xiaomi), the system may limit background work. Use these options to improve reliability."
+                android:textSize="14sp"
+                android:textColor="@color/neumo_text_secondary"
+                android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:id="@+id/openBatteryOptimizationButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/neumo_button"
+                android:clickable="true"
+                android:focusable="true"
+                android:paddingLeft="12dp"
+                android:paddingRight="12dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
+                android:text="Disable battery optimization for this app"
+                android:textColor="@color/neumo_text_primary"
+                android:textSize="14sp"
+                android:layout_marginBottom="10dp" />
+
+            <TextView
+                android:id="@+id/openAutostartButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/neumo_button"
+                android:clickable="true"
+                android:focusable="true"
+                android:paddingLeft="12dp"
+                android:paddingRight="12dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
+                android:text="Open Autostart settings"
+                android:textColor="@color/neumo_text_primary"
+                android:textSize="14sp"
+                android:layout_marginBottom="10dp" />
+
+            <TextView
+                android:id="@+id/openBackgroundActivityButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/neumo_button"
+                android:clickable="true"
+                android:focusable="true"
+                android:paddingLeft="12dp"
+                android:paddingRight="12dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
+                android:text="Allow background activity"
+                android:textColor="@color/neumo_text_primary"
+                android:textSize="14sp"
+                android:layout_marginBottom="10dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <CheckBox
+                    android:id="@+id/enablePersistentNotification"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Enable persistent reliability notification"
+                    android:textColor="@color/neumo_text_primary" />
+            </LinearLayout>
+
+        </LinearLayout>
+
         <!-- Location Source Card -->
         <LinearLayout
             android:layout_width="match_parent"

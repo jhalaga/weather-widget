@@ -21,9 +21,13 @@ import android.widget.EditText
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import android.os.Build
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
 
 class MainActivity : AppCompatActivity() {
     private val LOCATION_REQUEST = 42
+    private val NOTIF_REQUEST = 43
 
     private lateinit var currentLocationText: TextView
     private lateinit var appHeaderText: TextView
@@ -43,6 +47,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var fontSizeValueLabel: TextView
     private lateinit var favoritesChipGroup: com.google.android.material.chip.ChipGroup
     private lateinit var addToFavoritesButton: TextView
+    private lateinit var openBatteryOptimizationButton: TextView
+    private lateinit var openAutostartButton: TextView
+    private lateinit var openBackgroundActivityButton: TextView
+    private lateinit var enablePersistentNotification: CheckBox
 
     private var currentLocationData: LocationData? = null
     private var selectedCustomLocation: LocationData? = null
@@ -56,6 +64,9 @@ class MainActivity : AppCompatActivity() {
             initViews()
             setupEventListeners()
             loadCurrentSettings()
+            requestNotificationPermissionIfNeeded()
+
+            maybeShowOnboarding()
             
             // Automatically detect location if GPS is selected after loading settings
             if (radioAutoLocation.isChecked) {
@@ -73,6 +84,49 @@ class MainActivity : AppCompatActivity() {
             textView.textSize = 16f
             textView.setPadding(32, 32, 32, 32)
             setContentView(textView)
+        }
+    }
+    private fun maybeShowOnboarding() {
+        val prefs = getSharedPreferences("weather_reliability", MODE_PRIVATE)
+        val seen = prefs.getBoolean("onboarding_seen", false)
+        if (seen) return
+
+        try {
+            val view = LayoutInflater.from(this).inflate(R.layout.dialog_onboarding_reliability, null)
+            val dialog = AlertDialog.Builder(this)
+                .setView(view)
+                .setCancelable(true)
+                .create()
+
+            view.findViewById<TextView>(R.id.btnAllowNotifications).setOnClickListener {
+                requestNotificationPermissionIfNeeded()
+            }
+            view.findViewById<TextView>(R.id.btnDisableBatteryOpt).setOnClickListener {
+                openBatteryOptimizationSettings()
+            }
+            view.findViewById<TextView>(R.id.btnOpenAutostart).setOnClickListener {
+                openAutostartSettings()
+            }
+            view.findViewById<TextView>(R.id.btnEnablePersistent).setOnClickListener {
+                enablePersistentNotification.isChecked = true
+                setKeepAliveEnabled(true)
+                startKeepAliveService()
+            }
+            view.findViewById<TextView>(R.id.btnDone).setOnClickListener {
+                val dontShow = view.findViewById<CheckBox>(R.id.checkDontShowAgain).isChecked
+                if (dontShow) prefs.edit().putBoolean("onboarding_seen", true).apply()
+                dialog.dismiss()
+            }
+
+            dialog.show()
+        } catch (_: Exception) {}
+    }
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            val granted = ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), NOTIF_REQUEST)
+            }
         }
     }
 
@@ -95,6 +149,11 @@ class MainActivity : AppCompatActivity() {
         fontSizeValueLabel = findViewById(R.id.fontSizeValueLabel)
         favoritesChipGroup = findViewById(R.id.favoritesChipGroup)
         addToFavoritesButton = findViewById(R.id.addToFavoritesButton)
+        // Reliability UI
+        openBatteryOptimizationButton = findViewById(R.id.openBatteryOptimizationButton)
+        openAutostartButton = findViewById(R.id.openAutostartButton)
+        openBackgroundActivityButton = findViewById(R.id.openBackgroundActivityButton)
+        enablePersistentNotification = findViewById(R.id.enablePersistentNotification)
         
         currentLocationText.text = "Detecting location..."
         try {
@@ -193,6 +252,15 @@ class MainActivity : AppCompatActivity() {
                 showStatus("Added to favorites: ${loc.city}", 2000)
                 renderFavorites()
             } ?: showStatus("No location to add.", 2000)
+        }
+
+        // Reliability actions
+        openBatteryOptimizationButton.setOnClickListener { openBatteryOptimizationSettings() }
+        openAutostartButton.setOnClickListener { openAutostartSettings() }
+        openBackgroundActivityButton.setOnClickListener { openAppDetailsSettings() }
+        enablePersistentNotification.setOnCheckedChangeListener { _, isChecked ->
+            setKeepAliveEnabled(isChecked)
+            if (isChecked) startKeepAliveService() else stopKeepAliveService()
         }
     }
 
@@ -329,6 +397,12 @@ class MainActivity : AppCompatActivity() {
             fontSizeSeekBar.progress = ((scale - 1.0f) / 0.1f).toInt().coerceIn(0, 10)
             fontSizeValueLabel.text = "${(scale * 100).toInt()}%"
             renderFavorites()
+
+            // Load reliability preference
+            val prefs = getSharedPreferences("weather_reliability", MODE_PRIVATE)
+            val keepAlive = prefs.getBoolean("keep_alive_enabled", false)
+            enablePersistentNotification.isChecked = keepAlive
+            if (keepAlive) startKeepAliveService() else stopKeepAliveService()
             
         } catch (e: Exception) {
             showStatus("Error loading settings: ${e.message}")
@@ -604,8 +678,78 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
+            if (requestCode == NOTIF_REQUEST) {
+                // No-op; user can toggle persistent notification later
+            }
         } catch (e: Exception) {
             showStatus("Error handling permission result: ${e.message}")
         }
+    }
+
+    // ==== Reliability helpers ====
+    private fun openBatteryOptimizationSettings() {
+        try {
+            val pm = getSystemService(POWER_SERVICE) as PowerManager
+            val ignoring = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                pm.isIgnoringBatteryOptimizations(packageName)
+            } else true
+            if (!ignoring && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+                return
+            }
+        } catch (_: Exception) {}
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                return
+            }
+        } catch (_: Exception) {}
+
+        openAppDetailsSettings()
+    }
+
+    private fun openAutostartSettings() {
+        val intents = listOf(
+            Intent().setClassName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"),
+            Intent().setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity").putExtra("extra_pkgname", packageName),
+            Intent().setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditor")
+        )
+        for (intent in intents) {
+            try { startActivity(intent); return } catch (_: Exception) {}
+        }
+        openAppDetailsSettings()
+    }
+
+    private fun openAppDetailsSettings() {
+        try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:$packageName")
+            }
+            startActivity(intent)
+        } catch (_: Exception) {}
+    }
+
+    private fun setKeepAliveEnabled(enabled: Boolean) {
+        val prefs = getSharedPreferences("weather_reliability", MODE_PRIVATE)
+        prefs.edit().putBoolean("keep_alive_enabled", enabled).apply()
+    }
+
+    private fun startKeepAliveService() {
+        try {
+            val intent = Intent(this, KeepAliveService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ContextCompat.startForegroundService(this, intent)
+            } else {
+                startService(intent)
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun stopKeepAliveService() {
+        try { stopService(Intent(this, KeepAliveService::class.java)) } catch (_: Exception) {}
     }
 }
