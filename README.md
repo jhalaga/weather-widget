@@ -19,6 +19,8 @@ A modern Android weather widget that displays real-time weather forecasts direct
 - 🛡️ **Resilient Background Updates**: WorkManager-driven refresh every 30 min with retry
 - 🕒 **Freshness Indicator**: "Updated HH:mm" label and stale-data warning
 - 🌐 **Offline Fallback**: IP-based location when GPS unavailable
+- 🔧 **Reliability Onboarding**: First-run tips and one-tap shortcuts to key settings
+- 📣 **Optional Persistent Notification**: Keeps updates reliable on aggressive OEMs (opt-in)
 
 ## 📱 Screenshots
 
@@ -111,12 +113,13 @@ cd weather-widget
 |-----------|---------|
 | `WeatherService.kt` | Real weather data fetching from Open-Meteo API |
 | `ForecastWidgetService.kt` | Widget data processing and display logic |
-| `HelloWidgetProvider.kt` | Main widget provider and update manager |
+| `ForecastWidgetProvider6/7/8.kt` | Main widget providers for 6/7/8 items per row |
 | `LocationManager.kt` | GPS/network location and city search |
 | `MainActivity.kt` | Configuration UI with neumorphic design |
 | `WidgetRefreshWorker.kt` | Periodic and on-demand refresh via WorkManager |
 | `WeatherLocationResolver.kt` | Background-safe location resolution (custom → fused last → IP) |
 | `GeoIpService.kt` | IP-based location fallback |
+| `KeepAliveService.kt` | Optional persistent notification (low priority) |
 
 ### 🌐 APIs & Services
 - **[Open-Meteo](https://open-meteo.com/)**: Weather forecast data (no API key needed)
@@ -129,6 +132,7 @@ cd weather-widget
 <uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 ```
 
 ## 👨‍💻 Development
@@ -137,15 +141,27 @@ cd weather-widget
 ```
 app/src/main/java/com/jozefhalaga/weatherwidget/
 ├── MainActivity.kt                  # Configuration UI
-├── HelloWidgetProvider.kt           # Main widget provider
-├── ForecastWidgetService.kt         # Widget data & display logic  
+├── ForecastWidgetProvider6.kt       # Widget provider (6 items per row)
+├── ForecastWidgetProvider7.kt       # Widget provider (7 items per row)
+├── ForecastWidgetProvider8.kt       # Widget provider (8 items per row)
+├── ForecastWidgetService.kt         # Widget data & display logic
 ├── WeatherService.kt                # Weather API integration
-└── WeatherLocationManager.kt        # Location & search services
+├── WeatherLocationManager.kt        # Location & search services
+├── WeatherLocationResolver.kt       # Background-safe location resolution
+├── WidgetRefreshWorker.kt           # Periodic/on-demand refresh via WorkManager
+├── KeepAliveService.kt              # Optional persistent notification service
+└── GeoIpService.kt                  # IP-based fallback
 
 app/src/main/res/
 ├── layout/
 │   ├── activity_main.xml           # Main app layout
-│   ├── hello_widget.xml            # Widget layout  
+│   ├── widget_forecast.xml         # Widget layout
+│   └── dialog_onboarding_reliability.xml  # First-run reliability tips
+├── xml/
+│   ├── widget_forecast_info_6.xml  # AppWidgetProviderInfo (6)
+│   ├── widget_forecast_info_7.xml  # AppWidgetProviderInfo (7)
+│   └── widget_forecast_info_8.xml  # AppWidgetProviderInfo (8)
+│   
 │   └── forecast_item.xml           # Individual forecast items
 ├── drawable/                       # 12 weather icons + app icon
 └── values/                         # Strings, colors, styles
@@ -176,6 +192,8 @@ app/src/main/res/
 - **Time Alignment**: Hourly forecasts show exact ":00" times from server
 - **Dual Modes**: Toggle between hourly/daily forecasts
 - **Hardened Clicks**: Immutable PendingIntents on Android 12+
+- **Reliability Onboarding**: First-run dialog guiding key settings
+- **Persistent Notification (opt-in)**: Low-priority foreground service to resist OEM kills
 
 ## 🤝 Contributing
 
@@ -207,6 +225,13 @@ This project is **open source** and available under the MIT License.
 - **Weather icons** - Custom designed for clarity and recognition
 
 ## 📈 Changelog
+
+### v3.12 - Reliability Onboarding & Stability
+- 🧭 First-run onboarding with shortcuts to key device settings
+- 🔔 Android 13+ notification permission prompt (for reliability notification)
+- 📌 Optional persistent low-priority notification to improve background resilience
+- ⚙️ Reliability card in settings with battery optimization and autostart shortcuts
+- 🐞 Fixes and polish for MIUI/Doze behavior
 
 ### v3.2 - Resilient Background Refresh ✅
 - 🔄 Switched to WorkManager for periodic widget refresh (every 30 min)
