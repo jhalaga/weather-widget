@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">Weather Widget</string>
+    <string name="widget_label_6">6 columns</string>
+    <string name="widget_label_7">7 columns</string>
+    <string name="widget_label_8">8 columns</string>
 </resources>

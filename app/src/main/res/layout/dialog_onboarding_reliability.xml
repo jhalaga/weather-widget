@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@drawable/neumo_raised">
+
+    <TextView
+        android:id="@+id/title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Improve update reliability"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@color/neumo_text_primary"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/desc"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Some devices (e.g., Xiaomi) restrict background work. Do these quick steps for best results."
+        android:textSize="14sp"
+        android:textColor="@color/neumo_text_secondary"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:id="@+id/btnAllowNotifications"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/neumo_button"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
+        android:text="Allow notifications (Android 13+)"
+        android:textColor="@color/neumo_text_primary"
+        android:textSize="14sp"
+        android:layout_marginBottom="10dp" />
+
+    <TextView
+        android:id="@+id/btnDisableBatteryOpt"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/neumo_button"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
+        android:text="Disable battery optimization"
+        android:textColor="@color/neumo_text_primary"
+        android:textSize="14sp"
+        android:layout_marginBottom="10dp" />
+
+    <TextView
+        android:id="@+id/btnOpenAutostart"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/neumo_button"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
+        android:text="Open Autostart settings (MIUI)"
+        android:textColor="@color/neumo_text_primary"
+        android:textSize="14sp"
+        android:layout_marginBottom="10dp" />
+
+    <TextView
+        android:id="@+id/btnEnablePersistent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/neumo_button"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
+        android:text="Enable persistent reliability notification"
+        android:textColor="@color/neumo_text_primary"
+        android:textSize="14sp"
+        android:layout_marginBottom="16dp" />
+
+    <CheckBox
+        android:id="@+id/checkDontShowAgain"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Don't show again"
+        android:textColor="@color/neumo_text_secondary"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:id="@+id/btnDone"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/neumo_button"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
+        android:text="Done"
+        android:textColor="@color/neumo_text_primary"
+        android:textSize="14sp" />
+
+</LinearLayout>
+
+

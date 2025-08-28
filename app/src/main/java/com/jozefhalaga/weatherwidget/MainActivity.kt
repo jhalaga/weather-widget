@@ -20,11 +20,17 @@ import com.google.android.material.chip.ChipGroup
 import android.widget.EditText
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import android.os.Build
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
 
 class MainActivity : AppCompatActivity() {
     private val LOCATION_REQUEST = 42
+    private val NOTIF_REQUEST = 43
 
     private lateinit var currentLocationText: TextView
+    private lateinit var appHeaderText: TextView
     private lateinit var locationRadioGroup: RadioGroup
     private lateinit var radioAutoLocation: RadioButton
     private lateinit var radioCustomLocation: RadioButton
@@ -36,6 +42,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var selectedLocationText: TextView
     private lateinit var statusText: TextView
     private lateinit var helpIcon: TextView
+    // Items-per-row controls removed; multiple widget variants are provided instead
+    private lateinit var fontSizeSeekBar: SeekBar
+    private lateinit var fontSizeValueLabel: TextView
+    private lateinit var favoritesChipGroup: com.google.android.material.chip.ChipGroup
+    private lateinit var addToFavoritesButton: TextView
+    private lateinit var openBatteryOptimizationButton: TextView
+    private lateinit var openAutostartButton: TextView
+    private lateinit var openBackgroundActivityButton: TextView
+    private lateinit var enablePersistentNotification: CheckBox
 
     private var currentLocationData: LocationData? = null
     private var selectedCustomLocation: LocationData? = null
@@ -49,6 +64,9 @@ class MainActivity : AppCompatActivity() {
             initViews()
             setupEventListeners()
             loadCurrentSettings()
+            requestNotificationPermissionIfNeeded()
+
+            maybeShowOnboarding()
             
             // Automatically detect location if GPS is selected after loading settings
             if (radioAutoLocation.isChecked) {
@@ -68,9 +86,53 @@ class MainActivity : AppCompatActivity() {
             setContentView(textView)
         }
     }
+    private fun maybeShowOnboarding() {
+        val prefs = getSharedPreferences("weather_reliability", MODE_PRIVATE)
+        val seen = prefs.getBoolean("onboarding_seen", false)
+        if (seen) return
+
+        try {
+            val view = LayoutInflater.from(this).inflate(R.layout.dialog_onboarding_reliability, null)
+            val dialog = AlertDialog.Builder(this)
+                .setView(view)
+                .setCancelable(true)
+                .create()
+
+            view.findViewById<TextView>(R.id.btnAllowNotifications).setOnClickListener {
+                requestNotificationPermissionIfNeeded()
+            }
+            view.findViewById<TextView>(R.id.btnDisableBatteryOpt).setOnClickListener {
+                openBatteryOptimizationSettings()
+            }
+            view.findViewById<TextView>(R.id.btnOpenAutostart).setOnClickListener {
+                openAutostartSettings()
+            }
+            view.findViewById<TextView>(R.id.btnEnablePersistent).setOnClickListener {
+                enablePersistentNotification.isChecked = true
+                setKeepAliveEnabled(true)
+                startKeepAliveService()
+            }
+            view.findViewById<TextView>(R.id.btnDone).setOnClickListener {
+                val dontShow = view.findViewById<CheckBox>(R.id.checkDontShowAgain).isChecked
+                if (dontShow) prefs.edit().putBoolean("onboarding_seen", true).apply()
+                dialog.dismiss()
+            }
+
+            dialog.show()
+        } catch (_: Exception) {}
+    }
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            val granted = ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), NOTIF_REQUEST)
+            }
+        }
+    }
 
     private fun initViews() {
         currentLocationText = findViewById(R.id.currentLocationText)
+        appHeaderText = findViewById(R.id.appHeaderText)
         locationRadioGroup = findViewById(R.id.locationRadioGroup)
         radioAutoLocation = findViewById(R.id.radioAutoLocation)
         radioCustomLocation = findViewById(R.id.radioCustomLocation)
@@ -82,8 +144,29 @@ class MainActivity : AppCompatActivity() {
         selectedLocationText = findViewById(R.id.selectedLocationText)
         statusText = findViewById(R.id.statusText)
         helpIcon = findViewById(R.id.helpIcon)
+        // Items-per-row controls removed from layout
+        fontSizeSeekBar = findViewById(R.id.fontSizeSeekBar)
+        fontSizeValueLabel = findViewById(R.id.fontSizeValueLabel)
+        favoritesChipGroup = findViewById(R.id.favoritesChipGroup)
+        addToFavoritesButton = findViewById(R.id.addToFavoritesButton)
+        // Reliability UI
+        openBatteryOptimizationButton = findViewById(R.id.openBatteryOptimizationButton)
+        openAutostartButton = findViewById(R.id.openAutostartButton)
+        openBackgroundActivityButton = findViewById(R.id.openBackgroundActivityButton)
+        enablePersistentNotification = findViewById(R.id.enablePersistentNotification)
         
         currentLocationText.text = "Detecting location..."
+        try {
+            val versionName = try {
+                if (Build.VERSION.SDK_INT >= 33) {
+                    packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0)).versionName
+                } else {
+                    @Suppress("DEPRECATION")
+                    packageManager.getPackageInfo(packageName, 0).versionName
+                }
+            } catch (_: Exception) { "" }
+            appHeaderText.text = getString(R.string.app_name) + (if (versionName.isNullOrBlank()) "" else " v$versionName")
+        } catch (_: Exception) {}
     }
 
     private fun clearSearchResults() {
@@ -108,8 +191,11 @@ class MainActivity : AppCompatActivity() {
         updateLocationDisplay(location)
         // Cache the custom location for widget use
         WeatherLocationManager.cacheLocationData(this, location)
-        // Update widgets automatically
+        // Clear previous weather cache so new location fetches fresh data
+        WeatherService.clearCache(this)
+        // Update widgets automatically and refresh data now
         updateAllWidgets()
+        enqueueImmediateRefresh(this)
         
         showStatus("Location saved: ${location.city}", 3000)
     }
@@ -144,6 +230,38 @@ class MainActivity : AppCompatActivity() {
             }
             override fun afterTextChanged(s: android.text.Editable?) {}
         })
+
+        // Customization listeners
+        // Removed items-per-row customization; widgets provided in 6/7/8 variants
+        fontSizeSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val scale = 1.0f + (progress * 0.1f)
+                WeatherLocationManager.setWidgetFontScale(this@MainActivity, scale)
+                updateAllWidgets()
+                fontSizeValueLabel.text = "${(scale * 100).toInt()}%"
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                enqueueImmediateRefresh(this@MainActivity)
+            }
+        })
+
+        addToFavoritesButton.setOnClickListener {
+            currentLocationData?.let { loc ->
+                WeatherLocationManager.addFavoriteLocation(this, loc)
+                showStatus("Added to favorites: ${loc.city}", 2000)
+                renderFavorites()
+            } ?: showStatus("No location to add.", 2000)
+        }
+
+        // Reliability actions
+        openBatteryOptimizationButton.setOnClickListener { openBatteryOptimizationSettings() }
+        openAutostartButton.setOnClickListener { openAutostartSettings() }
+        openBackgroundActivityButton.setOnClickListener { openAppDetailsSettings() }
+        enablePersistentNotification.setOnCheckedChangeListener { _, isChecked ->
+            setKeepAliveEnabled(isChecked)
+            if (isChecked) startKeepAliveService() else stopKeepAliveService()
+        }
     }
 
     private fun setupRadioGroupListener() {
@@ -160,6 +278,7 @@ class MainActivity : AppCompatActivity() {
                     
                     // Start location detection with improved reliability
                     requestLocationSafelyWithRetry()
+                    enqueueImmediateRefresh(this)
                 }
                 R.id.radioCustomLocation -> {
                     customLocationCard.visibility = View.VISIBLE
@@ -272,6 +391,18 @@ class MainActivity : AppCompatActivity() {
             
             // Re-enable the radio group listener after loading settings
             setupRadioGroupListener()
+            // Load customization settings UI state
+            // Items-per-row controls removed; no-op
+            val scale = WeatherLocationManager.getWidgetFontScale(this)
+            fontSizeSeekBar.progress = ((scale - 1.0f) / 0.1f).toInt().coerceIn(0, 10)
+            fontSizeValueLabel.text = "${(scale * 100).toInt()}%"
+            renderFavorites()
+
+            // Load reliability preference
+            val prefs = getSharedPreferences("weather_reliability", MODE_PRIVATE)
+            val keepAlive = prefs.getBoolean("keep_alive_enabled", false)
+            enablePersistentNotification.isChecked = keepAlive
+            if (keepAlive) startKeepAliveService() else stopKeepAliveService()
             
         } catch (e: Exception) {
             showStatus("Error loading settings: ${e.message}")
@@ -281,6 +412,25 @@ class MainActivity : AppCompatActivity() {
             // Re-enable the listener even in error case
             setupRadioGroupListener()
         }
+    }
+
+    private fun renderFavorites() {
+        try {
+            favoritesChipGroup.removeAllViews()
+            val favs = WeatherLocationManager.getFavoriteLocations(this)
+            favs.forEach { loc ->
+                val chip = Chip(this)
+                chip.text = loc.city
+                chip.isCheckable = false
+                chip.isCloseIconVisible = true
+                chip.setOnClickListener { selectLocation(loc) }
+                chip.setOnCloseIconClickListener {
+                    WeatherLocationManager.removeFavoriteLocation(this, loc)
+                    renderFavorites()
+                }
+                favoritesChipGroup.addView(chip)
+            }
+        } catch (_: Exception) {}
     }
 
     private fun checkPermissionsQuietly() {
@@ -405,6 +555,7 @@ class MainActivity : AppCompatActivity() {
                     
                     // Update widgets automatically after successful location detection
                     updateAllWidgets()
+                    enqueueImmediateRefresh(this@MainActivity)
                     
                     // Provide feedback based on location type
                     val feedback = if (location.city.contains("Fallback") || location.city.contains("London")) {
@@ -436,6 +587,7 @@ class MainActivity : AppCompatActivity() {
                             // Cache the fallback location for widget use
                             WeatherLocationManager.cacheLocationData(this@MainActivity, fallback)
                             updateAllWidgets()
+                            enqueueImmediateRefresh(this@MainActivity)
                         } catch (fallbackError: Exception) {
                             currentLocationText.text = "Unable to determine location"
                             showStatus("Location detection failed completely", 3000)
@@ -469,12 +621,12 @@ class MainActivity : AppCompatActivity() {
     private fun updateAllWidgets() {
         try {
             val appWidgetManager = AppWidgetManager.getInstance(this)
-            val widgetComponent = ComponentName(this, HelloWidgetProvider::class.java)
+            val widgetComponent = ComponentName(this, ForecastWidgetProvider8::class.java)
             val widgetIds = appWidgetManager.getAppWidgetIds(widgetComponent)
             
             if (widgetIds.isNotEmpty()) {
                 // Trigger widget update
-                val updateIntent = Intent(this, HelloWidgetProvider::class.java).apply {
+                val updateIntent = Intent(this, ForecastWidgetProvider8::class.java).apply {
                     action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
                     putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, widgetIds)
                 }
@@ -526,8 +678,78 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
+            if (requestCode == NOTIF_REQUEST) {
+                // No-op; user can toggle persistent notification later
+            }
         } catch (e: Exception) {
             showStatus("Error handling permission result: ${e.message}")
         }
+    }
+
+    // ==== Reliability helpers ====
+    private fun openBatteryOptimizationSettings() {
+        try {
+            val pm = getSystemService(POWER_SERVICE) as PowerManager
+            val ignoring = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                pm.isIgnoringBatteryOptimizations(packageName)
+            } else true
+            if (!ignoring && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+                return
+            }
+        } catch (_: Exception) {}
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                return
+            }
+        } catch (_: Exception) {}
+
+        openAppDetailsSettings()
+    }
+
+    private fun openAutostartSettings() {
+        val intents = listOf(
+            Intent().setClassName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"),
+            Intent().setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity").putExtra("extra_pkgname", packageName),
+            Intent().setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditor")
+        )
+        for (intent in intents) {
+            try { startActivity(intent); return } catch (_: Exception) {}
+        }
+        openAppDetailsSettings()
+    }
+
+    private fun openAppDetailsSettings() {
+        try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:$packageName")
+            }
+            startActivity(intent)
+        } catch (_: Exception) {}
+    }
+
+    private fun setKeepAliveEnabled(enabled: Boolean) {
+        val prefs = getSharedPreferences("weather_reliability", MODE_PRIVATE)
+        prefs.edit().putBoolean("keep_alive_enabled", enabled).apply()
+    }
+
+    private fun startKeepAliveService() {
+        try {
+            val intent = Intent(this, KeepAliveService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ContextCompat.startForegroundService(this, intent)
+            } else {
+                startService(intent)
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun stopKeepAliveService() {
+        try { stopService(Intent(this, KeepAliveService::class.java)) } catch (_: Exception) {}
     }
 }

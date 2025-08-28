@@ -37,6 +37,10 @@ object WeatherLocationManager {
     private const val KEY_CUSTOM_LON = "custom_lon"
     private const val KEY_CUSTOM_CITY = "custom_city"
     private const val KEY_FORECAST_MODE = "forecast_mode"
+    private const val KEY_ITEMS_PER_ROW_HOURLY = "items_per_row_hourly"
+    private const val KEY_ITEMS_PER_ROW_DAILY = "items_per_row_daily"
+    private const val KEY_WIDGET_FONT_SCALE = "widget_font_scale"
+    private const val KEY_FAVORITES_JSON = "favorite_locations_json"
 
     private fun getPrefs(context: Context): SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -83,6 +87,80 @@ object WeatherLocationManager {
         return getPrefs(context).getBoolean(KEY_FORECAST_MODE, false) // Default to daily
     }
 
+    // Widget customization settings
+    fun setItemsPerRowHourly(context: Context, count: Int) {
+        val safe = when (count) { 4, 6, 8 -> count; else -> 8 }
+        getPrefs(context).edit().putInt(KEY_ITEMS_PER_ROW_HOURLY, safe).apply()
+    }
+    fun setItemsPerRowDaily(context: Context, count: Int) {
+        val safe = when (count) { 4, 6, 8 -> count; else -> 8 }
+        getPrefs(context).edit().putInt(KEY_ITEMS_PER_ROW_DAILY, safe).apply()
+    }
+    fun getItemsPerRowHourly(context: Context): Int {
+        return getPrefs(context).getInt(KEY_ITEMS_PER_ROW_HOURLY, 8)
+    }
+    fun getItemsPerRowDaily(context: Context): Int {
+        return getPrefs(context).getInt(KEY_ITEMS_PER_ROW_DAILY, 8)
+    }
+    fun setWidgetFontScale(context: Context, scale: Float) {
+        val clamped = scale.coerceIn(1.0f, 2.0f)
+        getPrefs(context).edit().putFloat(KEY_WIDGET_FONT_SCALE, clamped).apply()
+    }
+    fun getWidgetFontScale(context: Context): Float {
+        val v = getPrefs(context).getFloat(KEY_WIDGET_FONT_SCALE, 1.0f)
+        return if (v == 0f) 1.0f else v
+    }
+
+    // Favorite locations
+    fun getFavoriteLocations(context: Context): List<LocationData> {
+        val json = getPrefs(context).getString(KEY_FAVORITES_JSON, "") ?: ""
+        if (json.isBlank()) return emptyList()
+        return try {
+            val arr = org.json.JSONArray(json)
+            val out = mutableListOf<LocationData>()
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                out.add(
+                    LocationData(
+                        latitude = o.optDouble("lat"),
+                        longitude = o.optDouble("lon"),
+                        city = o.optString("city"),
+                        isCustom = true
+                    )
+                )
+            }
+            out
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+    private fun saveFavoriteLocations(context: Context, favorites: List<LocationData>) {
+        val arr = org.json.JSONArray()
+        favorites.forEach { loc ->
+            val o = org.json.JSONObject()
+            o.put("lat", loc.latitude)
+            o.put("lon", loc.longitude)
+            o.put("city", loc.city)
+            arr.put(o)
+        }
+        getPrefs(context).edit().putString(KEY_FAVORITES_JSON, arr.toString()).apply()
+    }
+    fun addFavoriteLocation(context: Context, locationData: LocationData) {
+        val list = getFavoriteLocations(context).toMutableList()
+        if (list.none { Math.abs(it.latitude - locationData.latitude) < 1e-6 && Math.abs(it.longitude - locationData.longitude) < 1e-6 }) {
+            list.add(locationData.copy(isCustom = true))
+            saveFavoriteLocations(context, list)
+        }
+    }
+    fun removeFavoriteLocation(context: Context, locationData: LocationData) {
+        val list = getFavoriteLocations(context).toMutableList()
+        val filtered = list.filterNot { Math.abs(it.latitude - locationData.latitude) < 1e-6 && Math.abs(it.longitude - locationData.longitude) < 1e-6 }
+        saveFavoriteLocations(context, filtered)
+    }
+    fun isFavorite(context: Context, locationData: LocationData): Boolean {
+        return getFavoriteLocations(context).any { Math.abs(it.latitude - locationData.latitude) < 1e-6 && Math.abs(it.longitude - locationData.longitude) < 1e-6 }
+    }
+
     // Cache location data for widget use
     fun cacheLocationData(context: Context, locationData: LocationData) {
         val prefs = context.getSharedPreferences("weather_location_cache", Context.MODE_PRIVATE)
@@ -120,13 +198,13 @@ object WeatherLocationManager {
             
             val response = URL(url).openConnection().run {
                 setRequestProperty("User-Agent", "WeatherWidget/1.0")
-                connectTimeout = 10000
-                readTimeout = 10000
+                connectTimeout = 30000
+                readTimeout = 30000
                 inputStream.bufferedReader().readText()
             }
             
             val jsonArray = org.json.JSONArray(response)
-            val results = mutableListOf<SearchResult>()
+            val results = mutableListOf<Pair<Double, SearchResult>>()
             
             for (i in 0 until jsonArray.length()) {
                 val item = jsonArray.getJSONObject(i)
@@ -142,6 +220,7 @@ object WeatherLocationManager {
                     val displayName = item.getString("display_name")
                     val lat = item.getDouble("lat")
                     val lon = item.getDouble("lon")
+                    val importance = item.optDouble("importance", 0.0)
                     
                     // Extract city and country for cleaner display
                     // Try multiple fields to find the actual place name
@@ -155,41 +234,27 @@ object WeatherLocationManager {
                         ?: originalName
                     
                     val country = address?.optString("country", "") ?: ""
+                    val state = address?.optString("state") ?: address?.optString("region")
+                    val county = address?.optString("county") ?: ""
+
+                    val primary = if (city.isNotEmpty()) city else originalName
+                    val secondary = listOfNotNull(state?.takeIf { it.isNotEmpty() } ?: county.takeIf { it.isNotEmpty() })
+                        .firstOrNull()
+                    val cleanDisplayName = buildString {
+                        append(primary)
+                        if (!secondary.isNullOrEmpty()) append(", ").append(secondary)
+                        if (country.isNotEmpty()) append(", ").append(country)
+                    }.ifBlank { displayName }
                     
-                    val cleanDisplayName = when {
-                        // Prioritize the original name if it's meaningful and not just a country
-                        originalName.isNotEmpty() && originalName != country && originalName.length > 1 -> {
-                            if (country.isNotEmpty()) "$originalName, $country" else originalName
-                        }
-                        // If we have a valid city name from address fields that's different from original
-                        city.isNotEmpty() && city != originalName -> {
-                            if (country.isNotEmpty()) "$city, $country" else city
-                        }
-                        // If no good name found, try to extract from the display name
-                        else -> {
-                            val parts = displayName.split(",").map { it.trim() }
-                            // Get the first non-empty part that's not just a country
-                            val placeName = parts.firstOrNull { part -> 
-                                part.isNotEmpty() && part != country && part.length > 1
-                            } ?: parts.firstOrNull { it.isNotEmpty() }
-                            
-                            if (placeName != null && placeName.isNotEmpty()) {
-                                if (country.isNotEmpty() && placeName != country) {
-                                    "$placeName, $country"
-                                } else {
-                                    placeName
-                                }
-                            } else {
-                                "Unknown Location"
-                            }
-                        }
-                    }
-                    
-                    results.add(SearchResult(cleanDisplayName, lat, lon, country ?: ""))
+                    results.add(importance to SearchResult(cleanDisplayName, lat, lon, country))
                 }
             }
             
-            results.distinctBy { "${it.latitude},${it.longitude}" }.take(8)
+            results
+                .sortedByDescending { it.first }
+                .map { it.second }
+                .distinctBy { "${it.latitude},${it.longitude}" }
+                .take(8)
         } catch (e: Exception) {
             emptyList()
         }
